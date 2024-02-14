@@ -49,7 +49,7 @@ helps with skimming the structure. Structure: (<identifier,
 
 (defun fpa--get-schema-root ()
   "Return root label of `fpa-schema-file'."
-  (cadr (fpa--get-schema)))
+  (caddr (fpa--get-schema)))
 
 (defun fpa--get-level (id)
   "Return int level give ID format as `1.2.3'."
@@ -82,9 +82,9 @@ helps with skimming the structure. Structure: (<identifier,
 
 (defun fpa--element-to-plist (schema-element tree prefix level)
   "Convert fpa xml ELEMENT to plist `key value'."
-  ;; (cl-assert (= (length schema-element) 3))
-  (let* ((schema-el-name     (cadr schema-element))
-         (schema-el-children (caddr schema-element))
+  (cl-assert (= (length schema-element) 4))
+  (let* ((schema-el-name     (caddr schema-element))
+         (schema-el-children (cadddr schema-element))
          (new-prefix (if (> level 2)
                          (format "%s|%s" prefix schema-el-name)
                        schema-el-name)))
@@ -92,7 +92,7 @@ helps with skimming the structure. Structure: (<identifier,
       ((app type-of 'cons)
        ;; recursion for element children
        (cl-loop for schema-child in schema-el-children
-                for key = (intern (cadr schema-child))
+                for key = (intern (caddr schema-child))
                 for subtrees = (xml-get-children tree key)
                 for new-level = (+ 1 level)
                 collect

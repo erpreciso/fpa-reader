@@ -1,5 +1,5 @@
-("root" do-not-export "FatturaElettronica"
- (("1" do-not-export "FatturaElettronicaHeader"
+("root" export "FatturaElettronica"
+ (("1" export "FatturaElettronicaHeader"
    (("1.1" do-not-export "DatiTrasmissione"
      (("1.1.1" do-not-export "IdTrasmittente"
        (("1.1.1.1" do-not-export "IdPaese" nil)

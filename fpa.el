@@ -83,7 +83,9 @@ helps with skimming the structure. Structure: (<identifier,
 (defun fpa--element-to-plist (schema-element tree prefix level)
   "Convert fpa xml ELEMENT to plist `key value'."
   (cl-assert (= (length schema-element) 4))
-  (let* ((schema-el-name     (caddr schema-element))
+  ;; schema: ("1.1.1.2" do-not-export "IdCodice" nil)
+  (let* ((schema-el-name     (caddr  schema-element))
+         (schema-el-export   (cadr   schema-element))
          (schema-el-children (cadddr schema-element))
          (new-prefix (if (> level 2)
                          (format "%s|%s" prefix schema-el-name)
@@ -96,21 +98,29 @@ helps with skimming the structure. Structure: (<identifier,
                 for subtrees = (xml-get-children tree key)
                 for new-level = (+ 1 level)
                 collect
-                (if subtrees
-                    (cl-loop for subtree in subtrees
-                             collect
+                (list key
+                      (cond ((and subtrees (> (length subtrees) 1))
+                             (cl-loop for subtree in subtrees
+                                      collect
+                                      (fpa--element-to-plist schema-child
+                                                             subtree new-prefix
+                                                             new-level)))
+                            ((and subtrees (= (length subtrees) 1))
                              (fpa--element-to-plist schema-child
-                                                    subtree new-prefix
+                                                    (car subtrees) new-prefix
                                                     new-level))
-                  (fpa--element-to-plist schema-child nil new-prefix new-level))))
+                            ((fpa--element-to-plist schema-child nil new-prefix
+                                                    new-level))))))
       ('nil
        ;; return element text
-       (list new-prefix (caddr tree))))))
+       (list new-prefix schema-el-export (or (caddr tree) "empty"))))))
+
+(fpa--fattura-to-plist fpa-test-file)
 
 (defun fpa--fattura-to-plist (file-name)
   "Convert fattura at FILE-NAME to plist."
   (let ((schema (fpa--get-schema))
         (tree (fpa--xml-to-tree file-name)))
-    (fpa--element-to-plist schema tree "root" 0)))
+    (list 'FatturaElettronica (fpa--element-to-plist schema tree "root" 0))))
 
 (fpa--fattura-to-plist fpa-test-file)

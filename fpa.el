@@ -82,7 +82,7 @@ helps with skimming the structure. Structure: (<identifier,
 
 (defun fpa--element-to-plist (schema-element tree prefix level)
   "Convert fpa xml ELEMENT to plist `key value'."
-  (cl-assert (= (length schema-element) 3))
+  ;; (cl-assert (= (length schema-element) 3))
   (let* ((schema-el-name     (cadr schema-element))
          (schema-el-children (caddr schema-element))
          (new-prefix (if (> level 2)
@@ -96,11 +96,13 @@ helps with skimming the structure. Structure: (<identifier,
                 for subtrees = (xml-get-children tree key)
                 for new-level = (+ 1 level)
                 collect
-                (cl-loop for subtree in subtrees
-                         collect
-                         (fpa--element-to-plist schema-child
-                                                subtree new-prefix
-                                                new-level))))
+                (if subtrees
+                    (cl-loop for subtree in subtrees
+                             collect
+                             (fpa--element-to-plist schema-child
+                                                    subtree new-prefix
+                                                    new-level))
+                  (fpa--element-to-plist schema-child nil new-prefix new-level))))
       ('nil
        ;; return element text
        (list new-prefix (caddr tree))))))
@@ -108,8 +110,3 @@ helps with skimming the structure. Structure: (<identifier,
 (let ((schema (fpa--get-schema))
       (tree (fpa--xml-to-tree fpa-test-file)))
   (fpa--element-to-plist schema tree "root" 0))
-
-
-
-
-

@@ -33,7 +33,7 @@
 
 (require 'xml)
 
-(defvar fpa-schema-file "~/org/projects/fpa-reader/fpa-schema2.el"
+(defvar fpa-schema-file "~/org/projects/fpa-reader/fpa-schema.el"
   "File containing the schema copy-pasted from
 `fatturapa.gov.it'. Schema file is a elisp-formatted list, where
 nested levels are represented by nested lists. Automatic indent
@@ -57,55 +57,3 @@ helps with skimming the structure. Structure: (<identifier,
     ((rx string-start num (= 3 (group "." (one-or-more num))) string-end) 4)
     ((rx string-start num (= 4 (group "." (one-or-more num))) string-end) 5)
     ((rx string-start num (= 5 (group "." (one-or-more num))) string-end) 6)))
-
-(defun fpa--parseparse
-(let ((schema (fpa--get-schema)))
-
-  
-
-;; (defun fpa--get-schema-lines ()
-;;   "Return list of lines from schema file."
-;;   (let* ((tree nil)
-;;          (lines nil))
-;;     (with-temp-buffer
-;;       (insert-file-contents fpa-schema-file)
-;;       (goto-char (point-min))
-;;       (while (not (eobp))
-;;         (push (buffer-substring
-;;                (line-beginning-position) (line-end-position))
-;;               lines)
-;;         (forward-line 1))
-;;       (reverse lines))))
-      
-
-;; (defun parse (lines tree level)
-;;   (while lines
-;;     (let ((line (pop lines))
-;;           (prefix (substring line 0 5))
-;;           (level-prefix (make-string level ? )))
-;;       (if (string-match (concat "^" level-prefix) line)
-          
-
-;; (defun parse-tree (remaining-lines siblings parent level)
-;;   (let* ((line (pop remaining-lines))
-;;          (prefix (substring line 0 5))
-;;          (level-prefix (make-string level ? )))
-;;     (if (string-match (concat "^" level-prefix) line)
-;;         (progn (push line siblings)
-;;                (parse-tree
-      
-;;       (cl-loop for lev upfrom (- level 1) downto 0
-;;                for prefix = (make-string lev ? )
-;;                if (string-match (concat "^" prefix) line)
-;;                do (push siblings parent)
-                           
-
-
-  (let ((lines (fpa--get-schema-lines))
-        (level 0)
-        (tree nil))
-    
-  
-    ;; (cl-loop for line in lines
-             ;; for 
-             ;; if (string= prefix "     "))))

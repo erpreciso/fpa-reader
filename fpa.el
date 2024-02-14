@@ -47,6 +47,10 @@ helps with skimming the structure. Structure: (<identifier,
     (goto-char (point-min))
     (read (current-buffer))))
 
+(defun fpa--get-schema-root ()
+  "Return root label of `fpa-schema-file'."
+  (cadr (fpa--get-schema)))
+
 (defun fpa--get-level (id)
   "Return int level give ID format as `1.2.3'."
   (pcase id
@@ -57,3 +61,26 @@ helps with skimming the structure. Structure: (<identifier,
     ((rx string-start num (= 3 (group "." (one-or-more num))) string-end) 4)
     ((rx string-start num (= 4 (group "." (one-or-more num))) string-end) 5)
     ((rx string-start num (= 5 (group "." (one-or-more num))) string-end) 6)))
+
+(defvar fpa--root-header-prefixes '(ns0 n0 ns1 ns2 ns3 b p nil)
+  "List of possible prefix headers for the top level.")
+
+(defun fpa--root-keys ()
+  "Return all possible keys for the root header."
+  (seq-map (lambda (p)
+             (let ((rt (fpa--get-schema-root)))
+               (if p (intern (concat (symbol-name p) ":" rt))
+                 (intern rt)))) fpa--root-header-prefixes))
+  
+(defun fpa--parse-file-xml (file-name)
+  "XML-parse FILE-NAME and return top node tree."
+  (let ((parsed-xml-region (xml-parse-file file-name))
+        (tree))
+    (cl-loop for key in (fpa--root-keys)
+             for tree = (assq key parsed-xml-region)
+             if tree return tree)))
+
+
+(fpa--parse-file-xml fpa-test-file)
+
+

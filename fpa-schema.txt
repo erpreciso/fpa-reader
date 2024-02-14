@@ -1,0 +1,265 @@
+("1" "<FatturaElettronicaHeader>"
+(("1.1" "<DatiTrasmissione>"
+((("1.1.1" "<IdTrasmittente>"
+(((("1.1.1.1" "<IdPaese>  
+(((("1.1.1.2" "<IdCodice>  
+((("1.1.2" "<ProgressivoInvio>"
+((("1.1.3" "<FormatoTrasmissione>"
+((("1.1.4" "<CodiceDestinatario>"
+((("1.1.5" "<ContattiTrasmittente>"
+(((("1.1.5.1" "<Telefono>  
+(((("1.1.5.2" "<Email>  
+((("1.1.6" "<PECDestinatario>"
+(("1.2" "<CedentePrestatore>" 
+((("1.2.1<DatiAnagrafici>"
+(((("1.2.1.1" "<IdFiscaleIVA>  
+((((("1.2.1.1.1" "<IdPaese> 
+((((("1.2.1.1.2" "<IdCodice> 
+(((("1.2.1.2" "<CodiceFiscale>  
+(((("1.2.1.3" "<Anagrafica>  
+((((("1.2.1.3.1" "<Denominazione> 
+((((("1.2.1.3.2" "<Nome> 
+((((("1.2.1.3.3" "<Cognome> 
+((((("1.2.1.3.4" "<Titolo> 
+((((("1.2.1.3.5" "<CodEORI> 
+(((("1.2.1.4" "<AlboProfessionale>  
+(((("1.2.1.5" "<ProvinciaAlbo>  
+(((("1.2.1.6" "<NumeroIscrizioneAlbo>  
+(((("1.2.1.7" "<DataIscrizioneAlbo>  
+(((("1.2.1.8" "<RegimeFiscale>  
+((("1.2.2" "<Sede>" "
+(((("1.2.2.1" "<Indirizzo>  
+(((("1.2.2.2" "<NumeroCivico>  
+(((("1.2.2.3" "<CAP>  
+(((("1.2.2.4" "<Comune>  
+(((("1.2.2.5" "<Provincia>  
+(((("1.2.2.6" "<Nazione>  
+((("1.2.3" "<StabileOrganizzazione>"
+(((("1.2.3.1" "<Indirizzo>  
+(((("1.2.3.2" "<NumeroCivico>  
+(((("1.2.3.3" "<CAP>  
+(((("1.2.3.4" "<Comune>  
+(((("1.2.3.5" "<Provincia>  
+(((("1.2.3.6" "<Nazione>  
+((("1.2.4" "<IscrizioneREA>"
+(((("1.2.4.1" "<Ufficio>  
+(((("1.2.4.2" "<NumeroREA>  
+(((("1.2.4.3" "<CapitaleSociale>  
+(((("1.2.4.4" "<SocioUnico>  
+(((("1.2.4.5" "<StatoLiquidazione>  
+((("1.2.5" "<Contatti>" "
+(((("1.2.5.1" "<Telefono>  
+(((("1.2.5.2" "<Fax>  
+(((("1.2.5.3" "<Email>  
+((("1.2.6" "<RiferimentoAmministrazione>"
+(("1.3" "<RappresentanteFiscale>"
+((("1.3.1" "<DatiAnagrafici>" "
+(((("1.3.1.1" "<IdFiscaleIVA>  
+((((("1.3.1.1.1" "<IdPaese> 
+((((("1.3.1.1.2" "<IdCodice> 
+(((("1.3.1.2" "<CodiceFiscale>  
+(((("1.3.1.3" "<Anagrafica>  
+((((("1.3.1.3.1" "<Denominazione> 
+((((("1.3.1.3.2" "<Nome> 
+((((("1.3.1.3.3" "<Cognome> 
+((((("1.3.1.3.4" "<Titolo> 
+((((("1.3.1.3.5" "<CodEORI> 
+(("1.4" "<CessionarioCommittente>" " 
+((("1.4.1" "<DatiAnagrafici>" "
+(((("1.4.1.1" "<IdFiscaleIVA>  
+((((("1.4.1.1.1" "<IdPaese> 
+((((("1.4.1.1.2" "<IdCodice> 
+(((("1.4.1.2" "<CodiceFiscale>  
+(((("1.4.1.3" "<Anagrafica>  
+((((("1.4.1.3.1" "<Denominazione> 
+((((("1.4.1.3.2" "<Nome> 
+((((("1.4.1.3.3" "<Cognome> 
+((((("1.4.1.3.4" "<Titolo> 
+((((("1.4.1.3.5" "<CodEORI> 
+((("1.4.2" "<Sede>" "
+(((("1.4.2.1" "<Indirizzo>  
+(((("1.4.2.2" "<NumeroCivico>  
+(((("1.4.2.3" "<CAP>  
+(((("1.4.2.4" "<Comune>  
+(((("1.4.2.5" "<Provincia>  
+(((("1.4.2.6" "<Nazione>  
+((("1.4.3" "<StabileOrganizzazione>" "
+(((("1.4.3.1" "<Indirizzo>  
+(((("1.4.3.2" "<NumeroCivico>  
+(((("1.4.3.3" "<CAP>  
+(((("1.4.3.4" "<Comune>  
+(((("1.4.3.5" "<Provincia>  
+(((("1.4.3.6" "<Nazione>  
+((("1.4.4" "<RappresentanteFiscale>" "
+(((("1.4.4.1" "<IdFiscaleIVA>  
+((((("1.4.4.1.1" "<IdPaese> 
+((((("1.4.4.1.2" "<IdCodice> 
+(((("1.4.4.2" "<Denominazione>  
+(((("1.4.4.3" "<Nome>  
+(((("1.4.4.4" "<Cognome>  
+(("1.5" "<TerzoIntermediarioOSoggettoEmittente>" " 
+((("1.5.1" "<DatiAnagrafici>" "
+(((("1.5.1.1" "<IdFiscaleIVA>  
+((((("1.5.1.1.1" "<IdPaese> 
+((((("1.5.1.1.2" "<IdCodice> 
+(((("1.5.1.2" "<CodiceFiscale>  
+(((("1.5.1.3" "<Anagrafica>  
+((((("1.5.1.3.1" "<Denominazione> 
+((((("1.5.1.3.2" "<Nome> 
+((((("1.5.1.3.3" "<Cognome> 
+((((("1.5.1.3.4" "<Titolo> 
+((((("1.5.1.3.5" "<CodEORI> 
+(("1.6" "<SoggettoEmittente>" " 
+("2" "<FatturaElettronicaBody>" "  
+(("2.1" "<DatiGenerali>" " 
+((("2.1.1" "<DatiGeneraliDocumento>" "
+(((("2.1.1.1" "<TipoDocumento>  
+(((("2.1.1.2" "<Divisa>  
+(((("2.1.1.3" "<Data>  
+(((("2.1.1.4" "<Numero>  
+(((("2.1.1.5" "<DatiRitenuta>  
+((((("2.1.1.5.1" "<TipoRitenuta> 
+((((("2.1.1.5.2" "<ImportoRitenuta> 
+((((("2.1.1.5.3" "<AliquotaRitenuta> 
+((((("2.1.1.5.4" "<CausalePagamento> 
+(((("2.1.1.6" "<DatiBollo>  
+((((("2.1.1.6.1" "<BolloVirtuale> 
+((((("2.1.1.6.2" "<ImportoBollo> 
+(((("2.1.1.7" "<DatiCassaPrevidenziale>  
+((((("2.1.1.7.1" "<TipoCassa> 
+((((("2.1.1.7.2" "<AlCassa> 
+((((("2.1.1.7.3" "<ImportoContributoCassa> 
+((((("2.1.1.7.4" "<ImponibileCassa> 
+((((("2.1.1.7.5" "<AliquotaIVA> 
+((((("2.1.1.7.6" "<Ritenuta> 
+((((("2.1.1.7.7" "<Natura> 
+((((("2.1.1.7.8" "<RiferimentoAmministrazione> 
+(((("2.1.1.8" "<ScontoMaggiorazione>  
+((((("2.1.1.8.1" "<Tipo> 
+((((("2.1.1.8.2" "<Percentuale> 
+((((("2.1.1.8.3" "<Importo> 
+(((("2.1.1.9" "<ImportoTotaleDocumento>  
+(((("2.1.1.10" "<Arrotondamento>  
+(((("2.1.1.11" "<Causale>  
+(((("2.1.1.12" "<Art73>  
+((("2.1.2" "<DatiOrdineAcquisto>" "
+(((("2.1.2.1" "<RiferimentoNumeroLinea>  
+(((("2.1.2.2" "<IdDocumento>  
+(((("2.1.2.3" "<Data>  
+(((("2.1.2.4" "<NumItem>  
+(((("2.1.2.5" "<CodiceCommessaConvenzione>  
+(((("2.1.2.6" "<CodiceCUP>  
+(((("2.1.2.7" "<CodiceCIG>  
+((("2.1.3" "<DatiContratto>" "
+((("2.1.4" "<DatiConvenzione>" "
+((("2.1.5" "<DatiRicezione>" "
+((("2.1.6" "<DatiFattureCollegate>" "
+((("2.1.7" "<DatiSAL>" "
+(((("2.1.7.1" "<RiferimentoFase>  
+((("2.1.8" "<DatiDDT>" "
+(((("2.1.8.1" "<NumeroDDT>  
+(((("2.1.8.2" "<DataDDT>  
+(((("2.1.8.3" "<RiferimentoNumeroLinea>  
+((("2.1.9" "<DatiTrasporto>" "
+(((("2.1.9.1" "<DatiAnagraficiVettore>  
+((((("2.1.9.1.1" "<IdFiscaleIVA> 
+(((((("2.1.9.1.1.1" "<IdPaese>
+(((((("2.1.9.1.1.2" "<IdCodice>
+((((("2.1.9.1.2" "<CodiceFiscale> 
+((((("2.1.9.1.3" "<Anagrafica> 
+(((((("2.1.9.1.3.1" "<Denominazione>
+(((((("2.1.9.1.3.2" "<Nome>
+(((((("2.1.9.1.3.3" "<Cognome>
+(((((("2.1.9.1.3.4" "<Titolo>
+(((((("2.1.9.1.3.5" "<CodEORI>
+((((("2.1.9.1.4" "<NumeroLicenzaGuida> 
+(((("2.1.9.2" "<MezzoTrasporto>  
+(((("2.1.9.3" "<CausaleTrasporto>  
+(((("2.1.9.4" "<NumeroColli>  
+(((("2.1.9.5" "<Descrizione>  
+(((("2.1.9.6" "<UnitaMisuraPeso>  
+(((("2.1.9.7" "<PesoLordo>  
+(((("2.1.9.8" "<PesoNetto>  
+(((("2.1.9.9" "<DataOraRitiro>  
+(((("2.1.9.10" "<DataInizioTrasporto>  
+(((("2.1.9.11" "<TipoResa>  
+(((("2.1.9.12" "<IndirizzoResa>  
+((((("2.1.9.12.1" "<Indirizzo> 
+((((("2.1.9.12.2" "<NumeroCivico> 
+((((("2.1.9.12.3" "<CAP> 
+((((("2.1.9.12.4" "<Comune> 
+((((("2.1.9.12.5" "<Provincia> 
+((((("2.1.9.12.6" "<Nazione> 
+(((("2.1.9.13" "<DataOraConsegna>  
+((("2.1.10" "<FatturaPrincipale>" "
+(((("2.1.10.1" "<NumeroFatturaPrincipale>  
+(((("2.1.10.2" "<DataFatturaPrincipale>  
+(("2.2" "<DatiBeniServizi>" " 
+((("2.2.1" "<DettaglioLinee>" "
+(((("2.2.1.1" "<NumeroLinea>  
+(((("2.2.1.2" "<TipoCessionePrestazione>  
+(((("2.2.1.3" "<CodiceArticolo>  
+((((("2.2.1.3.1" "<CodiceTipo> 
+((((("2.2.1.3.2" "<CodiceValore> 
+(((("2.2.1.4" "<Descrizione>  
+(((("2.2.1.5" "<Quantita>  
+(((("2.2.1.6" "<UnitaMisura>  
+(((("2.2.1.7" "<DataInizioPeriodo>  
+(((("2.2.1.8" "<DataFinePeriodo>  
+(((("2.2.1.9" "<PrezzoUnitario>  
+(((("2.2.1.10" "<ScontoMaggiorazione>  
+((((("2.2.1.10.1" "<Tipo> 
+((((("2.2.1.10.2" "<Percentuale> 
+((((("2.2.1.10.3" "<Importo> 
+(((("2.2.1.11" "<PrezzoTotale>  
+(((("2.2.1.12" "<AliquotaIVA>  
+(((("2.2.1.13" "<Ritenuta>  
+(((("2.2.1.14" "<Natura>  
+(((("2.2.1.15" "<RiferimentoAmministrazione>  
+(((("2.2.1.16" "<AltriDatiGestionali>  
+((((("2.2.1.16.1" "<TipoDato> 
+((((("2.2.1.16.2" "<RiferimentoTesto> 
+((((("2.2.1.16.3" "<RiferimentoNumero> 
+((((("2.2.1.16.4" "<RiferimentoData> 
+((("2.2.2" "<DatiRiepilogo>" "
+(((("2.2.2.1" "<AliquotaIVA>  
+(((("2.2.2.2" "<Natura>  
+(((("2.2.2.3" "<SpeseAccessorie>  
+(((("2.2.2.4" "<Arrotondamento>  
+(((("2.2.2.5" "<ImponibileImporto>  
+(((("2.2.2.6" "<Imposta>  
+(((("2.2.2.7" "<EsigibilitaIVA>  
+(((("2.2.2.8" "<RiferimentoNormativo>  
+(("2.3" "<DatiVeicoli>" " 
+((("2.3.1" "<Data>" "
+((("2.3.2" "<TotalePercorso>" "
+(("2.4" "<DatiPagamento>" " 
+((("2.4.1" "<CondizioniPagamento>" "
+((("2.4.2" "<DettaglioPagamento>" "
+(((("2.4.2.1" "<Beneficiario>  
+(((("2.4.2.2" "<ModalitaPagamento>  
+(((("2.4.2.3" "<DataRiferimentoTerminiPagamento>  
+(((("2.4.2.4" "<GiorniTerminiPagamento>  
+(((("2.4.2.5" "<DataScadenzaPagamento>  
+(((("2.4.2.6" "<ImportoPagamento>  
+(((("2.4.2.7" "<CodUfficioPostale>  
+(((("2.4.2.8" "<CognomeQuietanzante>  
+(((("2.4.2.9" "<NomeQuietanzante>  
+(((("2.4.2.10" "<CFQuietanzante>  
+(((("2.4.2.11" "<TitoloQuietanzante>  
+(((("2.4.2.12" "<IstitutoFinanziario>  
+(((("2.4.2.13" "<IBAN>  
+(((("2.4.2.14" "<ABI>  
+(((("2.4.2.15" "<CAB>  
+(((("2.4.2.16" "<BIC>  
+(((("2.4.2.17" "<ScontoPagamentoAnticipato>  
+(((("2.4.2.18" "<DataLimitePagamentoAnticipato>  
+(((("2.4.2.19" "<PenalitaPagamentiRitardati>  
+(((("2.4.2.20" "<DataDecorrenzaPenale>  
+(((("2.4.2.21" "<CodicePagamento>  
+(("2.5" "<Allegati>" " 
+((("2.5.1" "<NomeAttachment>" "
+((("2.5.2" "<AlgoritmoCompressione>" "
+((("2.5.3" "<FormatoAttachment>" "
+((("2.5.4" "<DescrizioneAttachment>" "
+((("2.5.5" "<Attachment>" "

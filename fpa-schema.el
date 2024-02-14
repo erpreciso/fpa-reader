@@ -12,7 +12,7 @@
         ("1.1.5.2" "Email" nil)))
       ("1.1.6" "PECDestinatario" nil)))
     ("1.2" "CedentePrestatore"
-     (("1.2.1""DatiAnagrafici"
+     (("1.2.1" "DatiAnagrafici"
        (("1.2.1.1" "IdFiscaleIVA"
          (("1.2.1.1.1" "IdPaese" nil)
           ("1.2.1.1.2" "IdCodice" nil)))

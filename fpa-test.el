@@ -1,6 +1,6 @@
 (load-file "fpa.el")
 
 (defvar fpa-test-file
-  "~/org/projects/fpa-reader/test/IT01234567890_FPA02.xml"
+  "~/org/projects/fpa-reader/test/IT01234567890_FPA03.xml"
   "Test file")
 

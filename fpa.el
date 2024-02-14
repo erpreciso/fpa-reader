@@ -107,6 +107,10 @@ helps with skimming the structure. Structure: (<identifier,
        ;; return element text
        (list new-prefix (caddr tree))))))
 
-(let ((schema (fpa--get-schema))
-      (tree (fpa--xml-to-tree fpa-test-file)))
-  (fpa--element-to-plist schema tree "root" 0))
+(defun fpa--fattura-to-plist (file-name)
+  "Convert fattura at FILE-NAME to plist."
+  (let ((schema (fpa--get-schema))
+        (tree (fpa--xml-to-tree file-name)))
+    (fpa--element-to-plist schema tree "root" 0)))
+
+(fpa--fattura-to-plist fpa-test-file)

@@ -112,10 +112,13 @@ helps with skimming the structure. Structure: (<identifier,
 
 (defun fpa--split-list-by-invoices (fpa-list)
   "Return list of fpa-lists, each list one invoice in original FPA-LIST."
-  (let* ((header (car fpa-list))
-         (invoices (caddr (cadr fpa-list))))
+  (let* ((header    (car fpa-list))
+         (body      (cadr fpa-list))
+         (body-id   (car body))
+         (body-name (cadr body))
+         (invoices  (caddr body)))
     (cl-loop for invoice in invoices
-             collect (list header invoice))))
+             collect (list header (list body-id body-name invoice)))))
 
 (defun fpa--get-lines-count (fpa-list)
   "Return number of lines in FPA-LIST."
@@ -125,52 +128,47 @@ helps with skimming the structure. Structure: (<identifier,
          (lines (caddr (car (car data2)))))
     (length lines)))
 
-(car (fpa--split-list-by-invoices (fpa--invoice-file-to-list fpa-test-file)))
-
-
-(let ((out nil) (out2 nil)
-      (el (car (fpa--split-list-by-invoices (fpa--invoice-file-to-list fpa-test-file)))))
-  (defun fpa--flatten (element multi-flag ix)
-    (pcase (fpa--element-type element)
-      ('leaf (push (list (car element) (caddr element) ix) (if multi-flag out2 out)))
-      ('leaves (seq-map (lambda (e) (fpa--flatten e multi-flag ix)) element))
-      ('parent (fpa--flatten (cadr element) multi-flag ix))
-      ('parents (seq-map (lambda (e) (fpa--flatten (cadr e) multi-flag ix)) element))
-      ('list-of-parents (seq-map-indexed (lambda (e idx) (fpa--flatten e t (+ 4 ix idx))) element))))
-  (fpa--flatten el nil 0)
-  (list (reverse out) (reverse out2)))
-
-(defun fpa--element-type (element)
-  "Return type of ELEMENT."
-  (cond ((not (listp element)) (error "invalid element"))
-        ((stringp (car element))                          'leaf)
-        ((and (listp element) (symbolp (car element)))    'parent)
-        ((and (listp element)
-              (not (seq-remove
-                    (lambda (e) (eq (fpa--element-type e) 'parent))
-                    element))) 'parents)
-        ((and (listp element)
-              (not (seq-remove
-                    (lambda (e) (eq (fpa--element-type e) 'leaf))
-                    element))) 'leaves)
-        ((and (listp element) (not (seq-remove
-                    (lambda (e) (eq (fpa--element-type e) 'parents))
-                    element)) 'list-of-parents))))
+(defun fpa--element-type (el)
+  "Return type of ELement."
+  (cond ((not (listp el)) (error "invalid element"))
+        ((= (length el) 1) (fpa--element-type (car el)))
+        ((seq-every-p #'stringp el)  'leaf)
+        ((and (stringp (car el)) (symbolp (cadr el)))    'parent)
+        ((seq-every-p (lambda (e) (eq (fpa--element-type e) 'parent)) el) 'parents)
+        ((seq-every-p (lambda (e) (eq (fpa--element-type e) 'leaf)) el) 'leaves)
+        ((seq-every-p (lambda (e) (eq (fpa--element-type e) 'parents)) el)
+         'list-of-parents)))
 
 (ert-deftest fpa--test-element-type ()
-  (should (equal (fpa--element-type '("Id" export "IT")) 'leaf))
-  (should (equal (fpa--element-type
-                  '(("Causale" export "causale1")
-                    ("Causale" export "causale2"))) 'leaves))
-  (should (equal (fpa--element-type '((Id1 ("Id1" export "IT"))
-                                      (Id2 ("Id2" export "IT")))) 'parents))
-  (should (equal (fpa--element-type '(IdPaese ("Id" export "IT"))) 'parent))
-  (should (equal (fpa--element-type '(((Dati ((Fat ((Num ("Nu" do "e"))
-                                                    (Dat ("Da" do "e")))))))
-                                      ((Dati ((Fat ((Num ("Nu" do "e"))
-                                                    (Dat ("Da" do "e")))))))))
-                 'list-of-parents)))
+  (should (equal (fpa--element-type '("2.5" "Att" "e")) 'leaf))
+  (should (equal (fpa--element-type '(("2.5" "Att" "e"))) 'leaf))
+  (should (equal (fpa--element-type '(("1.11" "Ca" "L")
+                                      ("1.11" "Ca" "S"))) 'leaves))
+  (should (equal (fpa--element-type '((("1" IdP (("1" "dP" "IT")))
+                                       ("2" Cod (("2" "dC" "01")))))) 'parents))
+  (should (equal (fpa--element-type '("2" Tipo ("2" "Tipo" "e"))) 'parent)))
+  ;; (should (equal (fpa--element-type '((("2.2.1.1" Num (("2.2.1.1" "Num" "1"))))
+                                      ;; (("2.2.1.1" Num (("2.2.1.1" "Num" "2"))))))
+                 ;; 'list-of-parents)))
 
-(fpa--fattura-to-plist fpa-test-file)
+(defun fpa--flatten-list (fpa-list)
+  "Return flattened single-invoice FPA-LIST. This list is not really
+flat since it contains repetitions of multi-value fields such as
+lines. Therefore, this function must be followed by other reshape
+functions such as `fpa--extract-lines' and
+`fpa--list-to-dataframe'."
+  (let ((out nil)) ;; list to collect <key value>
+    (defun fpa--flatten-el (el)
+      (if (and (listp el) (= (length el) 1))
+          (fpa--flatten-el (car el)) ;; recurse into single-element list
+        (pcase (fpa--element-type el)
+          ('leaf (push (list (cadr el) (caddr el)) out)) ;; exit recursion
+          ('leaves (seq-map (lambda (e) (fpa--flatten-el e)) el))
+          ('parent (fpa--flatten-el (caddr el))) ;; recurse in nested elements
+          ('parents (seq-map (lambda (e) (fpa--flatten-el (caddr e))) el))
+          ;; below the case when elements repeat, such as Linee
+          ('list-of-parents (seq-map (lambda (e) (fpa--flatten-el e)) el)))))
+    (fpa--flatten-el fpa-list)
+    (reverse out)))
 
-
+(fpa--flatten-list (car (fpa--split-list-by-invoices (fpa--invoice-file-to-list fpa-test-file))))

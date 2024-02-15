@@ -104,51 +104,32 @@ helps with skimming the structure. Structure: (<identifier,
                                        (fpa--tree-to-list schema-child child-tree new-prefix))
                             (fpa--tree-to-list schema-child nil new-prefix))))))))
 
-(fpa--fattura-to-plist fpa-test-file)
-
-
-
-(defun fpa--fattura-to-plist (file-name)
-  "Convert fattura at FILE-NAME to plist."
+(defun fpa--invoice-file-to-list (file-name)
+  "Convert invoice at FILE-NAME to nested list."
   (let ((schema (fpa--get-schema))
         (tree (fpa--xml-to-tree file-name)))
-    (list 'FatturaElettronica (fpa--tree-to-list schema tree "root"))))
+    (fpa--tree-to-list schema tree "root")))
 
-(defun fpa--split-plist-by-invoices (plist)
-  "Return list of plists, each plist one invoice in original PLIST."
-  (let* ((header (car plist))
-         (invoices (cadr plist)))
+(defun fpa--split-list-by-invoices (fpa-list)
+  "Return list of fpa-lists, each list one invoice in original FPA-LIST."
+  (let* ((header (car fpa-list))
+         (invoices (caddr (cadr fpa-list))))
     (cl-loop for invoice in invoices
              collect (list header invoice))))
 
-(defun fpa--get-lines-count (plist)
-  "Return number of lines in PLIST."
-    (length (cadr (cadr (caddr (caddr plist))))))
-  
+(defun fpa--get-lines-count (fpa-list)
+  "Return number of lines in FPA-LIST."
+  (let* ((body (cadr fpa-list))
+         (data1 (cadr body))
+         (data2 (caddr data1))
+         (lines (caddr (car (car data2)))))
+    (length lines)))
+
+(car (fpa--split-list-by-invoices (fpa--invoice-file-to-list fpa-test-file)))
+
+
 (let ((out nil) (out2 nil)
-      (el '(FatturaElettronica
-            ((FatturaElettronicaHeader
-              ((DatiTrasmissione
-                ((ProgressivoInvio
-                  ("Progr" do-not-export "00001"))))))
-             (FatturaElettronicaBody
-              (((DatiGenerali
-                 ((DatiGeneraliDocumento
-                   ((Causale (("Causale" export "LA")
-                              ("Causale" export "SEGUE")))))))
-                (DatiBeniServizi
-                 ((DettaglioLinee
-                   (((NumeroLinea ("Linea" export "1")))
-                    ((NumeroLinea ("Linea" export "2"))))))))))
-             (FatturaElettronicaBody
-              (((DatiGenerali
-                 ((DatiGeneraliDocumento
-                   ((Causale (("Caus2" export "LA")
-                              ("Caus2" export "SEGUE")))))))
-                (DatiBeniServizi
-                 ((DettaglioLinee
-                   (((NumeroLinea ("Linea" export "3")))
-                    ((NumeroLinea ("Linea" export "4"))))))))))))))
+      (el (car (fpa--split-list-by-invoices (fpa--invoice-file-to-list fpa-test-file)))))
   (defun fpa--flatten (element multi-flag ix)
     (pcase (fpa--element-type element)
       ('leaf (push (list (car element) (caddr element) ix) (if multi-flag out2 out)))
@@ -158,7 +139,6 @@ helps with skimming the structure. Structure: (<identifier,
       ('list-of-parents (seq-map-indexed (lambda (e idx) (fpa--flatten e t (+ 4 ix idx))) element))))
   (fpa--flatten el nil 0)
   (list (reverse out) (reverse out2)))
-
 
 (defun fpa--element-type (element)
   "Return type of ELEMENT."

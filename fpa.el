@@ -171,4 +171,25 @@ functions such as `fpa--extract-lines' and
     (fpa--flatten-el fpa-list)
     (reverse out)))
 
-(fpa--flatten-list (car (fpa--split-list-by-invoices (fpa--invoice-file-to-list fpa-test-file))))
+(defun fpa--extract-lines (flattened-list)
+  "Return list of all lines elements of FLATTENED-LIST. This
+function relies on some hard-coded identifiers of where the first
+line is in the flattened list, and the string to identify it."
+  (let* ((f flattened-list )
+         (first-line-id 153)
+         (elements-per-line 22)
+         (number-of-lines 
+          ;; count number of lines
+          (cl-loop for i from first-line-id to (length f) by elements-per-line
+                   for name = (car (nth i f))
+                   for name-match = (substring name (- (length name) 11))
+                   if (string= name-match "NumeroLinea") 
+                   sum 1)))
+    (cl-loop for i to (- number-of-lines 1)
+             collect
+             (cl-loop for j to (- elements-per-line 1)
+                      for el-idx = (+ first-line-id
+                                      (+ j (* elements-per-line i)))
+                      collect (nth el-idx f)))))
+
+(fpa--extract-lines (fpa--flatten-list (car (fpa--split-list-by-invoices (fpa--invoice-file-to-list fpa-test-file)))))

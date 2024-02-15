@@ -49,7 +49,7 @@ helps with skimming the structure. Structure: (<identifier,
 
 (defun fpa--get-schema-root ()
   "Return root label of `fpa-schema-file'."
-  (caddr (fpa--get-schema)))
+  (cadddr (fpa--get-schema)))
 
 (defun fpa--get-level (id)
   "Return int level give ID format as `1.2.3'."
@@ -80,47 +80,117 @@ helps with skimming the structure. Structure: (<identifier,
              for tree = (assq key parsed-xml-region)
              if tree return tree)))
 
-(defun fpa--element-to-plist (schema-element tree prefix level)
-  "Convert fpa xml ELEMENT to plist `key value'."
-  (cl-assert (= (length schema-element) 4))
-  ;; schema: ("1.1.1.2" do-not-export "IdCodice" nil)
-  (let* ((schema-el-name     (caddr  schema-element))
-         (schema-el-export   (cadr   schema-element))
-         (schema-el-children (cadddr schema-element))
-         (new-prefix (if (> level 2)
-                         (format "%s|%s" prefix schema-el-name)
-                       schema-el-name)))
-    (pcase schema-el-children
-      ((app type-of 'cons)
-       ;; recursion for element children
-       (cl-loop for schema-child in schema-el-children
-                for key = (intern (caddr schema-child))
-                for subtrees = (xml-get-children tree key)
-                for new-level = (+ 1 level)
-                collect
-                (list key
-                      (cond ((and subtrees (> (length subtrees) 1))
-                             (cl-loop for subtree in subtrees
-                                      collect
-                                      (fpa--element-to-plist schema-child
-                                                             subtree new-prefix
-                                                             new-level)))
-                            ((and subtrees (= (length subtrees) 1))
-                             (fpa--element-to-plist schema-child
-                                                    (car subtrees) new-prefix
-                                                    new-level))
-                            ((fpa--element-to-plist schema-child nil new-prefix
-                                                    new-level))))))
-      ('nil
-       ;; return element text
-       (list new-prefix schema-el-export (or (caddr tree) "empty"))))))
+(defun fpa--tree-to-list (schema tree prefix)
+  "Convert fpa xml TREE to nested list. Algo walk in parallel nested
+   schema and nested tree."
+  (cl-assert (= (length schema) 5))
+  (let* ((schema-name         (nth 3 schema))
+         (schema-children     (nth 4 schema))
+         (schema-id           (nth 0 schema))
+         (schema-level   (fpa--get-level schema-id))
+         (new-prefix (if (> schema-level 2) (format "%s|%s" prefix schema-name) schema-name)))
+    (cond ((not schema-children)
+           (list schema-id new-prefix (or (nth 2 tree) "empty")))
+          (schema-children
+           (cl-loop for schema-child in schema-children
+                    for child-name = (intern (nth 3 schema-child))
+                    for child-id = (nth 0 schema-child)
+                    for child-trees = (xml-get-children tree child-name)
+                    collect
+                    (list child-id child-name
+                          (if child-trees
+                              (cl-loop for child-tree in child-trees
+                                       collect
+                                       (fpa--tree-to-list schema-child child-tree new-prefix))
+                            (fpa--tree-to-list schema-child nil new-prefix))))))))
 
 (fpa--fattura-to-plist fpa-test-file)
+
+
 
 (defun fpa--fattura-to-plist (file-name)
   "Convert fattura at FILE-NAME to plist."
   (let ((schema (fpa--get-schema))
         (tree (fpa--xml-to-tree file-name)))
-    (list 'FatturaElettronica (fpa--element-to-plist schema tree "root" 0))))
+    (list 'FatturaElettronica (fpa--tree-to-list schema tree "root"))))
+
+(defun fpa--split-plist-by-invoices (plist)
+  "Return list of plists, each plist one invoice in original PLIST."
+  (let* ((header (car plist))
+         (invoices (cadr plist)))
+    (cl-loop for invoice in invoices
+             collect (list header invoice))))
+
+(defun fpa--get-lines-count (plist)
+  "Return number of lines in PLIST."
+    (length (cadr (cadr (caddr (caddr plist))))))
+  
+(let ((out nil) (out2 nil)
+      (el '(FatturaElettronica
+            ((FatturaElettronicaHeader
+              ((DatiTrasmissione
+                ((ProgressivoInvio
+                  ("Progr" do-not-export "00001"))))))
+             (FatturaElettronicaBody
+              (((DatiGenerali
+                 ((DatiGeneraliDocumento
+                   ((Causale (("Causale" export "LA")
+                              ("Causale" export "SEGUE")))))))
+                (DatiBeniServizi
+                 ((DettaglioLinee
+                   (((NumeroLinea ("Linea" export "1")))
+                    ((NumeroLinea ("Linea" export "2"))))))))))
+             (FatturaElettronicaBody
+              (((DatiGenerali
+                 ((DatiGeneraliDocumento
+                   ((Causale (("Caus2" export "LA")
+                              ("Caus2" export "SEGUE")))))))
+                (DatiBeniServizi
+                 ((DettaglioLinee
+                   (((NumeroLinea ("Linea" export "3")))
+                    ((NumeroLinea ("Linea" export "4"))))))))))))))
+  (defun fpa--flatten (element multi-flag ix)
+    (pcase (fpa--element-type element)
+      ('leaf (push (list (car element) (caddr element) ix) (if multi-flag out2 out)))
+      ('leaves (seq-map (lambda (e) (fpa--flatten e multi-flag ix)) element))
+      ('parent (fpa--flatten (cadr element) multi-flag ix))
+      ('parents (seq-map (lambda (e) (fpa--flatten (cadr e) multi-flag ix)) element))
+      ('list-of-parents (seq-map-indexed (lambda (e idx) (fpa--flatten e t (+ 4 ix idx))) element))))
+  (fpa--flatten el nil 0)
+  (list (reverse out) (reverse out2)))
+
+
+(defun fpa--element-type (element)
+  "Return type of ELEMENT."
+  (cond ((not (listp element)) (error "invalid element"))
+        ((stringp (car element))                          'leaf)
+        ((and (listp element) (symbolp (car element)))    'parent)
+        ((and (listp element)
+              (not (seq-remove
+                    (lambda (e) (eq (fpa--element-type e) 'parent))
+                    element))) 'parents)
+        ((and (listp element)
+              (not (seq-remove
+                    (lambda (e) (eq (fpa--element-type e) 'leaf))
+                    element))) 'leaves)
+        ((and (listp element) (not (seq-remove
+                    (lambda (e) (eq (fpa--element-type e) 'parents))
+                    element)) 'list-of-parents))))
+
+(ert-deftest fpa--test-element-type ()
+  (should (equal (fpa--element-type '("Id" export "IT")) 'leaf))
+  (should (equal (fpa--element-type
+                  '(("Causale" export "causale1")
+                    ("Causale" export "causale2"))) 'leaves))
+  (should (equal (fpa--element-type '((Id1 ("Id1" export "IT"))
+                                      (Id2 ("Id2" export "IT")))) 'parents))
+  (should (equal (fpa--element-type '(IdPaese ("Id" export "IT"))) 'parent))
+  (should (equal (fpa--element-type '(((Dati ((Fat ((Num ("Nu" do "e"))
+                                                    (Dat ("Da" do "e")))))))
+                                      ((Dati ((Fat ((Num ("Nu" do "e"))
+                                                    (Dat ("Da" do "e")))))))))
+                 'list-of-parents)))
 
 (fpa--fattura-to-plist fpa-test-file)
+
+

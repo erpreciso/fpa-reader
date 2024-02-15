@@ -41,18 +41,18 @@ helps with skimming the structure. Structure: (<identifier,
 1.2.3> <label> <children>)")
 
 (defun fpa--get-schema ()
-  "Return schema from file `fpa-schema-file'."
+  "Return schema from file `fpa-schema-file' as Lisp object."
   (with-temp-buffer
     (insert-file-contents fpa-schema-file)
     (goto-char (point-min))
     (read (current-buffer))))
 
 (defun fpa--get-schema-root ()
-  "Return root label of `fpa-schema-file'."
+  "Return root label of `fpa-schema-file'. It's used to parse the XML."
   (cadddr (fpa--get-schema)))
 
 (defun fpa--get-level (id)
-  "Return int level give ID format as `1.2.3'."
+  "Return level, given ID format as `1.2.3'."
   (pcase id
     ("root" 0)
     ((rx string-start num (= 0 (group "." (one-or-more num))) string-end) 1)
@@ -66,14 +66,15 @@ helps with skimming the structure. Structure: (<identifier,
   "List of possible prefix headers for the top level.")
 
 (defun fpa--root-keys ()
-  "Return all possible keys for the root header."
+  "Return all possible keys for the root header, combining the root
+from the schema file and the `fpa--root-header-prefixes'."
   (seq-map (lambda (p)
              (let ((rt (fpa--get-schema-root)))
                (if p (intern (concat (symbol-name p) ":" rt))
                  (intern rt)))) fpa--root-header-prefixes))
   
 (defun fpa--xml-to-tree (file-name)
-  "XML-parse FILE-NAME and return top node tree."
+  "XML-parse FILE-NAME and return top node tree as xml tree."
   (let ((parsed-xml-region (xml-parse-file file-name))
         (tree))
     (cl-loop for key in (fpa--root-keys)
@@ -81,8 +82,8 @@ helps with skimming the structure. Structure: (<identifier,
              if tree return tree)))
 
 (defun fpa--tree-to-list (schema tree prefix)
-  "Convert fpa xml TREE to nested list. Algo walk in parallel nested
-   schema and nested tree."
+  "Convert fpa xml TREE to nested list. The algo walks in parallel
+the nested schema and the nested tree."
   (cl-assert (= (length schema) 5))
   (let* ((schema-name         (nth 3 schema))
          (schema-children     (nth 4 schema))
@@ -105,13 +106,17 @@ helps with skimming the structure. Structure: (<identifier,
                             (fpa--tree-to-list schema-child nil new-prefix))))))))
 
 (defun fpa--invoice-file-to-list (file-name)
-  "Convert invoice at FILE-NAME to nested list."
+  "Convert invoice at FILE-NAME to nested list, calling the
+recursive `fpa--tree-to-list' function on a root schema and a
+root tree from file-name."
   (let ((schema (fpa--get-schema))
         (tree (fpa--xml-to-tree file-name)))
     (fpa--tree-to-list schema tree "root")))
 
 (defun fpa--split-list-by-invoices (fpa-list)
-  "Return list of fpa-lists, each list one invoice in original FPA-LIST."
+  "Return list of fpa-lists, each list one invoice in original
+FPA-LIST. It returns different fpa-lists repeating the header and
+keeping only one invoice data."
   (let* ((header    (car fpa-list))
          (body      (cadr fpa-list))
          (body-id   (car body))
@@ -129,7 +134,8 @@ helps with skimming the structure. Structure: (<identifier,
     (length lines)))
 
 (defun fpa--element-type (el)
-  "Return type of ELement."
+  "Return type of ELement by checking types of element' elements,
+and recurse in case of nested elements."
   (cond ((not (listp el)) (error "invalid element"))
         ((= (length el) 1) (fpa--element-type (car el)))
         ((seq-every-p #'stringp el)  'leaf)
@@ -156,7 +162,9 @@ helps with skimming the structure. Structure: (<identifier,
 flat since it contains repetitions of multi-value fields such as
 lines. Therefore, this function must be followed by other reshape
 functions such as `fpa--extract-lines' and
-`fpa--list-to-dataframe'."
+`fpa--list-to-dataframe'. Note that it is mandatory to run this
+function on a single-invoice list, otherwise there will be
+missing data."
   (let ((out nil)) ;; list to collect <key value>
     (defun fpa--flatten-el (el)
       (if (and (listp el) (= (length el) 1))

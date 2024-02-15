@@ -179,11 +179,13 @@ missing data."
     (fpa--flatten-el fpa-list)
     (reverse out)))
 
-(defun fpa--extract-lines (flattened-list)
-  "Return list of all lines elements of FLATTENED-LIST. This
-function relies on some hard-coded identifiers of where the first
-line is in the flattened list, and the string to identify it."
-  (let* ((f flattened-list )
+(defun fpa--expand-flattened-headers-and-lines (flattened-list)
+  "Return list of all common headers (elements that do not repeat)
+and each elements of each line of FLATTENED-LIST. This function
+relies on some hard-coded identifiers of where the first line is
+in the flattened list, and the string to identify
+it. (((headers) (line1)) ((headers) (line2)))"
+  (let* ((f flattened-list)
          (first-line-id 153)
          (elements-per-line 22)
          (number-of-lines 
@@ -192,12 +194,23 @@ line is in the flattened list, and the string to identify it."
                    for name = (car (nth i f))
                    for name-match = (substring name (- (length name) 11))
                    if (string= name-match "NumeroLinea") 
-                   sum 1)))
-    (cl-loop for i to (- number-of-lines 1)
-             collect
-             (cl-loop for j to (- elements-per-line 1)
-                      for el-idx = (+ first-line-id
-                                      (+ j (* elements-per-line i)))
-                      collect (nth el-idx f)))))
+                   sum 1))
+         (last-line-element
+          (+ first-line-id (* number-of-lines elements-per-line)))
+         (lines
+          ;; For each line ...
+          (cl-loop for i to (- number-of-lines 1)
+                   collect
+                   ;; ... extract each line's elements
+                   (cl-loop for j to (- elements-per-line 1)
+                            for el-idx = (+ first-line-id
+                                            (+ j (* elements-per-line i)))
+                            collect (nth el-idx f))))
+         (headers
+          (append (cl-loop for i to (- first-line-id 1) collect (nth i f))
+                  (cl-loop for i from last-line-element to (- (length f) 1)
+                           collect (nth i f)))))
+    (cl-loop for line in lines
+             collect (append headers line))))
 
-(fpa--extract-lines (fpa--flatten-list (car (fpa--split-list-by-invoices (fpa--invoice-file-to-list fpa-test-file)))))
+(fpa--extract-header-and-lines (fpa--flatten-list (car (fpa--split-list-by-invoices (fpa--invoice-file-to-list fpa-test-file)))))

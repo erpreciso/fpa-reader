@@ -40,6 +40,8 @@ nested levels are represented by nested lists. Automatic indent
 helps with skimming the structure. Structure: (<identifier,
 1.2.3> <label> <children>)")
 
+(defvar fpa--output-file "~/org/projects/fpa-reader/out/out.csv")
+
 (defun fpa--get-schema ()
   "Return schema from file `fpa-schema-file' as Lisp object."
   (with-temp-buffer
@@ -180,7 +182,7 @@ functions such as `fpa--extract-lines' and
 `fpa--list-to-dataframe'. Note that it is mandatory to run this
 function on a single-invoice list, otherwise there will be
 missing data."
-  (let ((out nil)) ;; list to collect <key value>
+  (let ((out nil) (out2 nil) (out3 nil)) ;; list to collect <key value>
     (defun fpa--flatten-el (el)
       (if (and (listp el) (= (length el) 1))
           (fpa--flatten-el (car el)) ;; recurse into single-element list
@@ -193,10 +195,14 @@ missing data."
           ('parent (fpa--flatten-el (caddr el))) ;; recurse in nested elements
           ('parents (seq-map (lambda (e) (fpa--flatten-el (caddr e))) el))
           ;; below the case when elements repeat, such as Linee
-          ('list-of-parents (seq-map (lambda (e) (fpa--flatten-el e)) el)))))
+          ('list-of-parents (cond ((string= (car (car (car el))) "2.2.2.1") (push el out2))
+                                  ((string= (car (car (car el))) "2.2.1.1") (push el out3))
+                                  (t (seq-map (lambda (e) (fpa--flatten-el e)) el)))))))
     (fpa--flatten-el fpa-list)
     (reverse out)))
-  
+
+(fpa-file-to-buffer "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT016417907022024Z_00C5E.xml" t)
+
 (defun fpa--patch--merge-causale (flat)
   "Patch: since `causale' can span multiple elements, this
  function merge them in a single element in FLAT. This function must run
@@ -215,7 +221,6 @@ missing data."
          (res (append before new-causale-el after)))
     res))
 
-(fpa-file-to-buffer "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT016417907022024Z_00C5E.xml" t)
   
 (defun fpa--expand-flat-headers-and-lines (flattened-list)
   "Return list of all common headers (elements that do not repeat)
@@ -293,8 +298,6 @@ strings."
       ('column-names column-names)   ; return a string
       ('column-values column-values) ; return list of strings
       ('all (list column-names column-values)))))
-
-(defvar fpa--output-file "~/org/projects/fpa-reader/out/out.csv")
 
 (defun fpa--strings-to-buffer (strings &optional save-to-file)
   "Print STRINGS to buffer. Optionally, save to file 'fpa--output-file'."
@@ -377,4 +380,22 @@ file. FILE-NAME-OR-NAMES is a file path, or a list of file paths."
     (fpa--strings-to-buffer
      (list header-with-file-name invoices-strings) save-to-file)))
 
-(fpa-file-to-buffer fpa-test-files t)
+(let ((f "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT00967720285_6QBya.xml"))
+  (fpa-file-to-buffer f))
+
+(let ((f "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT00967720285_6Jafv.xml"))
+  (fpa-file-to-buffer f))
+
+(let ((fpa--output-file "~/org/projects/fpa-reader/out/all-invoices.csv"))
+  (fpa-file-to-buffer (directory-files "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import" t
+                                       directory-files-no-dot-files-regexp) t))
+
+(fpa--invoice-file-to-list "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT08973230967_8CExG.xml")
+
+(fpa-file-to-buffer  "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT08973230967_8CExG.xml" t)
+
+(let* ((fpa-list (fpa--invoice-file-to-list "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT00967720285_6Jafv.xml"))
+       (invoice (fpa--split-list-by-invoices fpa-list))
+       (flat (fpa--flatten-list invoice))
+       (patch (fpa--patch--merge-causale flat)))
+  (seq-map-indexed (lambda (f idx) (princ (format "%3s %s\n" idx f))) patch))

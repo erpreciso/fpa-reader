@@ -279,12 +279,42 @@ select if return column names only, or rows only, or both."
                                   fpa--output-file) 
                                  (format-time-string "%Y%m%dT%H%M%S"))))
                     (copy-file fpa--output-file backup-name)))
+              (write-region nil nil fpa--output-file)))))))
 
-  
-(defun fpa-file-to-string (file-names)
-  
-(let ((f (fpa--extract-header-and-lines
-          (fpa--flatten-list
-           (car (fpa--split-list-by-invoices
-                 (fpa--invoice-file-to-list fpa-test-file)))))))
-  (fpa--to-string f 'all))
+(defun fpa-file-to-buffer (file-name-or-names &optional save-to-file)
+  "Convert FILE-NAME-OR-NAMES to buffer. Include all invoices in each
+file. FILE-NAME-OR-NAMES is a file path, or a list of file paths."
+  ;; convert single name to list
+  (let* ((file-names (if (listp file-name-or-names)
+                         file-name-or-names (list file-name-or-names)))
+         ;; get header from first file (they are all the same)
+         (header (fpa--to-string (fpa--extract-header-and-lines
+                                  (fpa--flatten-list
+                                   (car (fpa--split-list-by-invoices
+                                         (fpa--invoice-file-to-list
+                                          (car file-names)))))) 'column-names))
+         ;; collect all invoices from all files
+         (invoices-string
+          ;; iterate file names
+          (cl-loop
+           for file in file-names
+           ;; get a single file string
+           for file-s = (let*
+                            ((fpa-list (fpa--invoice-file-to-list file))
+                             (invoices (fpa--split-list-by-invoices fpa-list)))
+                          ;; iterate invoices in a file
+                          (cl-loop
+                           for invoice in invoices
+                           for flatten = (fpa--flatten-list invoice)
+                           for h-and-l = (fpa--extract-header-and-lines flatten)
+                           for s = (fpa--to-string h-and-l 'column-values)
+                           ;; add newline only starting second row
+                           then (format "\n%s"
+                                        (fpa--to-string h-and-l 'column-values))
+                           concat s))
+           ;; add newline starting second row
+           for file-s-newline = file-s then (format "\n%s" file-s)
+           concat file-s-newline)))
+    (fpa--string-to-buffer (concat header "\n" invoices-string) save-to-file)))
+
+(fpa-file-to-buffer fpa-test-file t)

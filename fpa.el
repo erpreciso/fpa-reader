@@ -189,15 +189,35 @@ missing data."
           ('list-of-parents (seq-map (lambda (e) (fpa--flatten-el e)) el)))))
     (fpa--flatten-el fpa-list)
     (reverse out)))
+  
+(defun fpa--patch--merge-causale (flat)
+  "Patch: since `causale' can span multiple elements, this
+ function merge them in a single element in FLAT. This function must run
+ before `fpa--expand-flat-headers-and-lines'."
+  (let* ((causale-id "DatiGenerali|DatiGeneraliDocumento|Causale")
+         (causale-pos 107)
+         (causales (seq-filter (lambda (e) (string= (car e) causale-id)) flat))
+         (causales-n (length causales))
+         (new-causale (cl-loop for causale in causales
+                               for c-text = (cadr causale)
+                               for c = c-text then (format "|%s" c-text)
+                               concat c))
+         (new-causale-el (list (list causale-id new-causale)))
+         (before (seq-take flat causale-pos))
+         (after (seq-drop flat (+ causales-n causale-pos)))
+         (res (append before new-causale-el after)))
+    res))
 
+(fpa-file-to-buffer "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT016417907022024Z_00C5E.xml" t)
+  
 (defun fpa--expand-flat-headers-and-lines (flattened-list)
   "Return list of all common headers (elements that do not repeat)
 and each elements of each line of FLATTENED-LIST. This function
 relies on some hard-coded identifiers of where the first line is
 in the flattened list, and the string to identify
 it. (((headers) (line1)) ((headers) (line2)))"
-  (let* ((f flattened-list)
-         (first-line-id 153)
+  (let* ((f (fpa--patch--merge-causale flattened-list)) ;patch for multi causale
+         (first-line-id 152)
          (elements-per-line 22)
          (number-of-lines 
           ;; count number of lines

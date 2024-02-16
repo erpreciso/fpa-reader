@@ -1,0 +1,6 @@
+Convert the XML `fattura PA' (Fatturazione elettronica verso la
+Pubblica amministrazione - Sistema di Interscambio) format to
+readable format.
+
+Mapping is parsed from the spreadsheet-style map published on
+[[https://www.fatturapa.gov.it/it/norme-e-regole/documentazione-fattura-elettronica/formato-fatturapa/][FatturaPA]] updated on 2024-02-01.

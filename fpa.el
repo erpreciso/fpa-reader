@@ -215,4 +215,29 @@ it. (((headers) (line1)) ((headers) (line2)))"
     (cl-loop for line in lines
              collect (append headers line))))
 
-(fpa--extract-header-and-lines (fpa--flatten-list (car (fpa--split-list-by-invoices (fpa--invoice-file-to-list fpa-test-file)))))
+(defun fpa--to-string (headers-and-lines what)
+  "Return HEADERS-AND-LINES converted to list of strings. WHAT
+select if return column names only, or rows only, or both."
+  (let* ((column-names
+          (cl-loop for column in (car headers-and-lines)
+                   for column-name = (car column)
+                   ;; using `then' and format to avoid trailing separator
+                   then (format ";%s" (car column))
+                   concat column-name))
+         (column-values
+          (cl-loop for row in headers-and-lines
+                   concat (format "%s\n" (cl-loop for col in row
+                                                  for col-val = (cadr col)
+                                                  for col-str = col-val then
+                                                  (format ";%s" col-val)
+                                                  concat col-str)))))
+    (pcase what
+      ('column-names column-names)
+      ('column-values column-values)
+      ('all (format "%s\n%s" column-names column-values)))))
+
+(let ((f (fpa--extract-header-and-lines
+          (fpa--flatten-list
+           (car (fpa--split-list-by-invoices
+                 (fpa--invoice-file-to-list fpa-test-file)))))))
+  (fpa--to-string f 'all))

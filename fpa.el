@@ -342,6 +342,7 @@ file. FILE-NAME-OR-NAMES is a file path, or a list of file paths."
           ;; iterate file names
           (cl-loop
            for file in file-names
+           do (message (format "Working on %s" file))
            ;; create line prefix with file infos
            for file-info = (format "%s%s%s%s" (file-name-base file)
                                    fpa--separator file fpa--separator)

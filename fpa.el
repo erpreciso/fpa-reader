@@ -235,7 +235,7 @@ it. (((headers) (line1)) ((headers) (line2)))"
            finally return cleaned))
 
 (defun fpa--to-string (headers-and-lines what)
-  "Return HEADERS-AND-LINES converted to list of strings. WHAT
+  "Return HEADERS-AND-LINES converted to string. WHAT
 select if return column names only, or rows only, or both."
   (let* ((column-names
           (cl-loop for column in (car headers-and-lines)
@@ -246,13 +246,16 @@ select if return column names only, or rows only, or both."
          (column-values
           (cl-loop
            for row in headers-and-lines
-           concat (format "%s\n" (cl-loop
-                                  for col in row
-                                  for col-val-raw = (cadr col)
-                                  for col-val = (fpa--clean-value col-val-raw)
-                                  for col-str = col-val then
-                                  (format "%s%s" fpa--separator col-val)
-                                  concat col-str)))))
+           for row-s = (cl-loop
+                        for col in row
+                        for col-val-raw = (cadr col)
+                        for col-val = (fpa--clean-value col-val-raw)
+                        for col-str = col-val then
+                        (format "%s%s" fpa--separator col-val)
+                        concat col-str)
+           ;; add newline only starting second row
+           for row-s-newline = row-s then (format "\n%s" row-s)
+           concat row-s-newline)))
     (pcase what
       ('column-names column-names)
       ('column-values column-values)

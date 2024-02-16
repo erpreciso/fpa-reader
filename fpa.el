@@ -94,7 +94,10 @@ the nested schema and the nested tree."
                          (format "%s|%s" prefix schema-name)
                        schema-name)))
     (cond ((not schema-children) ;; exit recursion and return leaf
-           (list schema-id new-prefix (or (nth 2 tree) "empty")))
+           (let ((val (cond ((not (nth 2 tree)) "empty")
+                            ;; force string even if there are illegal nested
+                            (t (format "%s" (nth 2 tree)))))) 
+           (list schema-id new-prefix val)))
           (schema-children
            (cl-loop for schema-child in schema-children
                     for child-name = (intern (nth 3 schema-child))
@@ -144,15 +147,18 @@ keeping only one invoice data."
   "Return type of ELement by checking types of element' elements,
 and recurse in case of nested elements."
   (cond ((not (listp el)) (error "invalid element"))
-        ((= (length el) 1) (fpa--element-type (car el)))
+        ((= (length el) 1) (fpa--element-type (car el))) ; recurse for nested
+        ((symbolp (car el)) 'ignore) ; illegal case
         ((seq-every-p #'stringp el)  'leaf)
         ((and (stringp (car el)) (symbolp (cadr el)))    'parent)
-        ((seq-every-p (lambda (e) (eq (fpa--element-type e) 'parent)) el) 'parents)
+        ((seq-every-p (lambda (e) (eq (fpa--element-type e) 'parent)) el)
+         'parents)
         ((seq-every-p (lambda (e) (eq (fpa--element-type e) 'leaf)) el) 'leaves)
         ((seq-every-p (lambda (e) (eq (fpa--element-type e) 'parents)) el)
          'list-of-parents)))
 
 (ert-deftest fpa--test-element-type ()
+  (should (equal (fpa--element-type '(Id nil "406")) 'ignore))
   (should (equal (fpa--element-type '("2.5" "Att" "e")) 'leaf))
   (should (equal (fpa--element-type '(("2.5" "Att" "e"))) 'leaf))
   (should (equal (fpa--element-type '(("1.11" "Ca" "L")
@@ -181,6 +187,7 @@ missing data."
         (pcase (fpa--element-type el)
           ;; `leaf' exits recursion
           ('leaf (push (list (cadr el) (fpa--sanitize-string (caddr el))) out))
+          ('ignore nil)
           ;; other values recurse
           ('leaves (seq-map (lambda (e) (fpa--flatten-el e)) el))
           ('parent (fpa--flatten-el (caddr el))) ;; recurse in nested elements

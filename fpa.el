@@ -241,7 +241,7 @@ select if return column names only, or rows only, or both."
           (cl-loop for column in (car headers-and-lines)
                    for column-name = (car column)
                    ;; using `then' and format to avoid trailing separator
-                   then (format ";%s" (car column))
+                   then (format "%s%s" fpa--separator (car column))
                    concat column-name))
          (column-values
           (cl-loop
@@ -251,7 +251,7 @@ select if return column names only, or rows only, or both."
                                   for col-val-raw = (cadr col)
                                   for col-val = (fpa--clean-value col-val-raw)
                                   for col-str = col-val then
-                                  (format ";%s" col-val)
+                                  (format "%s%s" fpa--separator col-val)
                                   concat col-str)))))
     (pcase what
       ('column-names column-names)

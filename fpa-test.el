@@ -1,8 +1,6 @@
 (load-file "fpa.el")
 
-(defvar fpa-test-files
-  '("~/org/projects/fpa-reader/test/IT01234567890_FPA03.xml"
-    "~/org/projects/fpa-reader/test/IT01234567890_FPA01.xml"
-    "~/org/projects/fpa-reader/test/IT01234567890_FPA02.xml")
-  "Test file")
+(defvar fpa-test-files (directory-files "~/org/projects/fpa-reader/test" t
+                                        directory-files-no-dot-files-regexp)
+  "Test files")
 

@@ -285,12 +285,24 @@ strings."
                     (copy-file fpa--output-file backup-name)))
               (write-region nil nil fpa--output-file)))))))
 
+(defun fpa--valid-files (file-names)
+  "Return only valid fpa files from FILE-NAMES."
+  (let ((valids (seq-filter
+                 (lambda (f)
+                   (and (string-match "\\.xml" f)
+                        (not (string-match "metaDato" f))
+                        (not (string-match "p7m" f)))) file-names)))
+        (if (not valids) (error "No valid file reimaned")) valids))
+
 (defun fpa-file-to-buffer (file-name-or-names &optional save-to-file)
   "Convert FILE-NAME-OR-NAMES to buffer. Include all invoices in each
 file. FILE-NAME-OR-NAMES is a file path, or a list of file paths."
   ;; convert single name to list
-  (let* ((file-names (if (listp file-name-or-names)
-                         file-name-or-names (list file-name-or-names)))
+  (let* ((file-names-raw (if (listp file-name-or-names)
+                             file-name-or-names (list file-name-or-names)))
+         ;; filter for valid file names only
+         (file-names (or (fpa--valid-files file-names-raw)
+                         (error "Cannot continue. No files.")))
          ;; get header from first file (they are all the same)
          (header (fpa--to-strings (fpa--expand-flat-headers-and-lines
                                    (fpa--flatten-list

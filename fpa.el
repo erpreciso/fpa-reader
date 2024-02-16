@@ -258,6 +258,32 @@ select if return column names only, or rows only, or both."
       ('column-values column-values)
       ('all (format "%s\n%s" column-names column-values)))))
 
+(defvar fpa--output-file "~/org/projects/fpa-reader/out/out.csv")
+
+(defun fpa--string-to-buffer (string &optional save-to-file)
+  "Print STRING to buffer. Optionally, save to file 'fpa--output-file'."
+  (let ((out-buffer "*FPA*"))
+    (save-excursion
+      (with-output-to-temp-buffer out-buffer
+        (goto-char (point-min))
+        (princ string)
+        (if save-to-file
+            (when (file-writable-p fpa--output-file)
+              (if (file-exists-p fpa--output-file)
+                  (let ((backup-name (concat (make-backup-file-name
+                                              fpa--output-file) 
+                                             (format-time-string "%Y%m%dT%H%M%S"))))
+                    (copy-file fpa--output-file backup-name)))
+              (write-region (point-min)
+                            (point-max)
+                            fpa--output-file)))
+        (pop-to-buffer out-buffer)))))
+
+
+
+  
+(defun fpa-file-to-string (file-names)
+  
 (let ((f (fpa--extract-header-and-lines
           (fpa--flatten-list
            (car (fpa--split-list-by-invoices

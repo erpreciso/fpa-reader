@@ -152,10 +152,12 @@ and recurse in case of nested elements."
                                       ("1.11" "Ca" "S"))) 'leaves))
   (should (equal (fpa--element-type '((("1" IdP (("1" "dP" "IT")))
                                        ("2" Cod (("2" "dC" "01")))))) 'parents))
-  (should (equal (fpa--element-type '("2" Tipo ("2" "Tipo" "e"))) 'parent)))
-  ;; (should (equal (fpa--element-type '((("2.2.1.1" Num (("2.2.1.1" "Num" "1"))))
-                                      ;; (("2.2.1.1" Num (("2.2.1.1" "Num" "2"))))))
-                 ;; 'list-of-parents)))
+  (should (equal (fpa--element-type '("2" Tipo ("2" "Tipo" "e"))) 'parent))
+  (should (equal (fpa--element-type '((("1.1" N (("1.1" "Num" "1")))
+                                       ("1.2" Tip ("1.2" "Dat" "e")))
+                                      (("1.1" N (("1.1" "Num" "2")))
+                                       ("1.2" Tip ("1.2" "Dat" "e")))))
+                 'list-of-parents)))
 
 (defun fpa--flatten-list (fpa-list)
   "Return flattened single-invoice FPA-LIST. This list is not really

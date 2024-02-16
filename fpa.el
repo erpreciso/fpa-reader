@@ -234,9 +234,11 @@ it. (((headers) (line1)) ((headers) (line2)))"
            (replace-regexp-in-string rx "" cleaned)
            finally return cleaned))
 
-(defun fpa--to-string (headers-and-lines what)
-  "Return HEADERS-AND-LINES converted to string. WHAT
-select if return column names only, or rows only, or both."
+(defun fpa--to-strings (headers-and-lines what)
+  "Return HEADERS-AND-LINES converted to list of strings. WHAT
+select if return column names only, or list of rows only, or
+both. Output is not ready for printing, as it's a list of
+strings."
   (let* ((column-names
           (cl-loop for column in (car headers-and-lines)
                    for column-name = (car column)
@@ -253,23 +255,25 @@ select if return column names only, or rows only, or both."
                         for col-str = col-val then
                         (format "%s%s" fpa--separator col-val)
                         concat col-str)
-           ;; add newline only starting second row
-           for row-s-newline = row-s then (format "\n%s" row-s)
-           concat row-s-newline)))
+           collect row-s)))
     (pcase what
-      ('column-names column-names)
-      ('column-values column-values)
-      ('all (format "%s\n%s" column-names column-values)))))
+      ('column-names column-names)   ; return a string
+      ('column-values column-values) ; return list of strings
+      ('all (list column-names column-values)))))
 
 (defvar fpa--output-file "~/org/projects/fpa-reader/out/out.csv")
 
-(defun fpa--string-to-buffer (string &optional save-to-file)
-  "Print STRING to buffer. Optionally, save to file 'fpa--output-file'."
+(defun fpa--strings-to-buffer (strings &optional save-to-file)
+  "Print STRINGS to buffer. Optionally, save to file 'fpa--output-file'."
   (let ((out-buffer "*FPA*"))
     (save-excursion
       (with-output-to-temp-buffer out-buffer
         (goto-char (point-min))
-        (princ string)
+        ;; print header
+        (princ (format "%s\n" (car strings)))
+        ;; print lines
+        (dolist (s (cadr strings))
+          (princ (format "%s\n" s)))
         (pop-to-buffer out-buffer)
         (if save-to-file
             (when (file-writable-p fpa--output-file)
@@ -288,17 +292,22 @@ file. FILE-NAME-OR-NAMES is a file path, or a list of file paths."
   (let* ((file-names (if (listp file-name-or-names)
                          file-name-or-names (list file-name-or-names)))
          ;; get header from first file (they are all the same)
-         (header (fpa--to-string (fpa--extract-header-and-lines
-                                  (fpa--flatten-list
-                                   (car (fpa--split-list-by-invoices
-                                         (fpa--invoice-file-to-list
-                                          (car file-names)))))) 'column-names))
+         (header (fpa--to-strings (fpa--extract-header-and-lines
+                                   (fpa--flatten-list
+                                    (car (fpa--split-list-by-invoices
+                                          (fpa--invoice-file-to-list
+                                           (car file-names)))))) 'column-names))
+         (header-with-file-name (format "%s%s%s%s%s" "FileName" fpa--separator
+                                        "FilePath" fpa--separator header))
          ;; collect all invoices from all files
-         (invoices-string
+         (invoices-strings
           ;; iterate file names
           (cl-loop
            for file in file-names
-           ;; get a single file string
+           ;; create line prefix with file infos
+           for file-info = (format "%s%s%s%s" (file-name-base file)
+                                   fpa--separator file fpa--separator)
+           ;; get a single file strings
            for file-s = (let*
                             ((fpa-list (fpa--invoice-file-to-list file))
                              (invoices (fpa--split-list-by-invoices fpa-list)))
@@ -307,14 +316,18 @@ file. FILE-NAME-OR-NAMES is a file path, or a list of file paths."
                            for invoice in invoices
                            for flatten = (fpa--flatten-list invoice)
                            for h-and-l = (fpa--extract-header-and-lines flatten)
-                           for s = (fpa--to-string h-and-l 'column-values)
-                           ;; add newline only starting second row
-                           then (format "\n%s"
-                                        (fpa--to-string h-and-l 'column-values))
-                           concat s))
-           ;; add newline starting second row
-           for file-s-newline = file-s then (format "\n%s" file-s)
-           concat file-s-newline)))
-    (fpa--string-to-buffer (concat header "\n" invoices-string) save-to-file)))
+                           for lines = (fpa--to-strings h-and-l 'column-values)
+                           ;; add file info to each row
+                           for lines-f = (seq-map (lambda (l)
+                                                    (format "%s%s" file-info l))
+                                                  lines)
+                           ;; append lines to single file
+                           append lines-f))
+           ;; append file strings to all invoices' lines
+           append file-s)))
+    ;; send everything to buffer
+    ;; (header (invoice-1-line-1 invoice-1-line-2 invoice-2-line-1 etc))
+    (fpa--strings-to-buffer
+     (list header-with-file-name invoices-strings) save-to-file)))
 
-(fpa-file-to-buffer fpa-test-file t)
+(fpa-file-to-buffer fpa-test-files t)

@@ -179,7 +179,9 @@ missing data."
       (if (and (listp el) (= (length el) 1))
           (fpa--flatten-el (car el)) ;; recurse into single-element list
         (pcase (fpa--element-type el)
-          ('leaf (push (list (cadr el) (caddr el)) out)) ;; exit recursion
+          ;; `leaf' exits recursion
+          ('leaf (push (list (cadr el) (fpa--sanitize-string (caddr el))) out))
+          ;; other values recurse
           ('leaves (seq-map (lambda (e) (fpa--flatten-el e)) el))
           ('parent (fpa--flatten-el (caddr el))) ;; recurse in nested elements
           ('parents (seq-map (lambda (e) (fpa--flatten-el (caddr e))) el))
@@ -227,12 +229,16 @@ it. (((headers) (line1)) ((headers) (line2)))"
 (defconst fpa--invalid-regexps-in-string `("\n" "\257" ,fpa--separator)
   "Regexps to be removed from strings during conversion.")
 
-(defun fpa--clean-value (val)
-  "Remove invalid characters from string VAL."
+(defconst fpa--string-max-length 1099 "Max length for parser.")
+
+(defun fpa--sanitize-string (str)
+  "Remove invalid characters from string STR, and truncate if too long."
   (cl-loop for rx in fpa--invalid-regexps-in-string
-           for cleaned = (replace-regexp-in-string rx "" val) then
+           for cleaned = (replace-regexp-in-string rx "" str) then
            (replace-regexp-in-string rx "" cleaned)
-           finally return cleaned))
+           for max-len = (min (length cleaned) fpa--string-max-length)
+           for shortened = (substring cleaned 0 max-len)
+           finally return shortened))
 
 (defun fpa--to-strings (headers-and-lines what)
   "Return HEADERS-AND-LINES converted to list of strings. WHAT
@@ -251,7 +257,7 @@ strings."
            for row-s = (cl-loop
                         for col in row
                         for col-val-raw = (cadr col)
-                        for col-val = (fpa--clean-value col-val-raw)
+                        for col-val = (fpa--sanitize-string col-val-raw)
                         for col-str = col-val then
                         (format "%s%s" fpa--separator col-val)
                         concat col-str)

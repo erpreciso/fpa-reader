@@ -270,19 +270,15 @@ select if return column names only, or rows only, or both."
       (with-output-to-temp-buffer out-buffer
         (goto-char (point-min))
         (princ string)
+        (pop-to-buffer out-buffer)
         (if save-to-file
             (when (file-writable-p fpa--output-file)
               (if (file-exists-p fpa--output-file)
-                  (let ((backup-name (concat (make-backup-file-name
-                                              fpa--output-file) 
-                                             (format-time-string "%Y%m%dT%H%M%S"))))
+                  (let ((backup-name
+                         (concat (make-backup-file-name
+                                  fpa--output-file) 
+                                 (format-time-string "%Y%m%dT%H%M%S"))))
                     (copy-file fpa--output-file backup-name)))
-              (write-region (point-min)
-                            (point-max)
-                            fpa--output-file)))
-        (pop-to-buffer out-buffer)))))
-
-
 
   
 (defun fpa-file-to-string (file-names)

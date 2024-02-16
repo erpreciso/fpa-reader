@@ -84,13 +84,16 @@ from the schema file and the `fpa--root-header-prefixes'."
 (defun fpa--tree-to-list (schema tree prefix)
   "Convert fpa xml TREE to nested list. The algo walks in parallel
 the nested schema and the nested tree."
-  (cl-assert (= (length schema) 5))
+  (cl-assert (= (length schema) 5))  ;; sanity check on schema
   (let* ((schema-name         (nth 3 schema))
          (schema-children     (nth 4 schema))
          (schema-id           (nth 0 schema))
          (schema-level   (fpa--get-level schema-id))
-         (new-prefix (if (> schema-level 2) (format "%s|%s" prefix schema-name) schema-name)))
-    (cond ((not schema-children)
+         (new-prefix (if (> schema-level 2)
+                         ;; in prefix, include only levels below 2 to save ink
+                         (format "%s|%s" prefix schema-name)
+                       schema-name)))
+    (cond ((not schema-children) ;; exit recursion and return leaf
            (list schema-id new-prefix (or (nth 2 tree) "empty")))
           (schema-children
            (cl-loop for schema-child in schema-children
@@ -100,9 +103,13 @@ the nested schema and the nested tree."
                     collect
                     (list child-id child-name
                           (if child-trees
+                              ;; recurse for one or multiple children
+                              ;; return always a list, even for single child
                               (cl-loop for child-tree in child-trees
                                        collect
-                                       (fpa--tree-to-list schema-child child-tree new-prefix))
+                                       (fpa--tree-to-list schema-child
+                                                          child-tree new-prefix))
+                            ;; if no children, no value, then return empty leaf
                             (fpa--tree-to-list schema-child nil new-prefix))))))))
 
 (defun fpa--invoice-file-to-list (file-name)

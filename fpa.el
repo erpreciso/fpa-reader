@@ -188,7 +188,7 @@ missing data."
     (fpa--flatten-el fpa-list)
     (reverse out)))
 
-(defun fpa--expand-flattened-headers-and-lines (flattened-list)
+(defun fpa--expand-flat-headers-and-lines (flattened-list)
   "Return list of all common headers (elements that do not repeat)
 and each elements of each line of FLATTENED-LIST. This function
 relies on some hard-coded identifiers of where the first line is
@@ -292,7 +292,7 @@ file. FILE-NAME-OR-NAMES is a file path, or a list of file paths."
   (let* ((file-names (if (listp file-name-or-names)
                          file-name-or-names (list file-name-or-names)))
          ;; get header from first file (they are all the same)
-         (header (fpa--to-strings (fpa--extract-header-and-lines
+         (header (fpa--to-strings (fpa--expand-flat-headers-and-lines
                                    (fpa--flatten-list
                                     (car (fpa--split-list-by-invoices
                                           (fpa--invoice-file-to-list
@@ -315,7 +315,8 @@ file. FILE-NAME-OR-NAMES is a file path, or a list of file paths."
                           (cl-loop
                            for invoice in invoices
                            for flatten = (fpa--flatten-list invoice)
-                           for h-and-l = (fpa--extract-header-and-lines flatten)
+                           for h-and-l = (fpa--expand-flat-headers-and-lines
+                                          flatten)
                            for lines = (fpa--to-strings h-and-l 'column-values)
                            ;; add file info to each row
                            for lines-f = (seq-map (lambda (l)

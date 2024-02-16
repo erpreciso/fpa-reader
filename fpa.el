@@ -292,7 +292,7 @@ strings."
                    (and (string-match "\\.xml" f)
                         (not (string-match "metaDato" f))
                         (not (string-match "p7m" f)))) file-names)))
-        (if (not valids) (error "No valid file reimaned")) valids))
+        (if (not valids) (error "No valid file remained")) valids))
 
 (defun fpa-file-to-buffer (file-name-or-names &optional save-to-file)
   "Convert FILE-NAME-OR-NAMES to buffer. Include all invoices in each

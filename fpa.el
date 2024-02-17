@@ -42,14 +42,12 @@ helps with skimming the structure. Structure: (<identifier,
 
 (defvar fpa--output-file "~/org/projects/fpa-reader/out/out.csv")
 
-(defun fpa--get-schema ()
+(defun fpa--schema-from-file ()
   "Return schema from file `fpa-schema-file' as Lisp object."
   (with-temp-buffer
     (insert-file-contents fpa-schema-file)
     (goto-char (point-min))
     (read (current-buffer))))
-
-(car (fpa--get-schema))
 
 (defun fpa--get-level (id)
   "Return level, given ID format as `1.2.3'."
@@ -81,6 +79,13 @@ from the schema file and the `fpa--root-header-prefixes'."
              for tree = (assq key parsed-xml-region)
              if tree return tree)))
 
+(defun fpa--schema-key-import-flag (key)
+  "Return the import flag from the schema key."
+  (cadr key))
+
+(defun fpa--schema-key-path (key)
+  "Return the path from the schema key."
+  (caddr key))
 
 (let ((tree (fpa--xml-to-tree "c:/Users/c740/OneDrive/org/projects/fpa-reader/test/IT01234567890_FPA03.xml"))
   (defun fpa--tree-get-value (tree keys)

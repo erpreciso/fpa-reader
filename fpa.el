@@ -70,7 +70,7 @@ from the schema file and the `fpa--root-header-prefixes'."
              (let ((rt "FatturaElettronica"))
                (if p (intern (concat (symbol-name p) ":" rt))
                  (intern rt)))) fpa--root-header-prefixes))
-  
+
 (defun fpa--xml-to-tree (file-name)
   "XML-parse FILE-NAME and return top node tree as xml tree."
   (let ((parsed-xml-region (xml-parse-file file-name))
@@ -79,51 +79,125 @@ from the schema file and the `fpa--root-header-prefixes'."
              for tree = (assq key parsed-xml-region)
              if tree return tree)))
 
+;; TODO convert schema-keys to struct using cl-struct
+
 (defun fpa--schema-key-get (what key)
   "Return WHAT from the KEY schema key."
   (pcase what
     ('import-flag (nth 1 key))
-    ('path (nth 2 key))))
- 
-(let ((tree (fpa--xml-to-tree "c:/Users/c740/OneDrive/org/projects/fpa-reader/test/IT01234567890_FPA03.xml"))
-      (keys (fpa--schema-from-file)))
-  (defun fpa--tree-get-value-from-path (tree path)
-    "path: (root child1 child2 leaf)"
-    (cond ((not path) tree)
-          (t (let ((children (xml-get-children tree (pop path))))
-               (if (= 1 (length children))
-                   (fpa--tree-get-value-from-path (car children) path)
-                 (cl-loop for child in children
-                          collect
-                          (fpa--tree-get-value-from-path child path)))))))
-  (defun fpa--tree-get-value-from-key (tree key)
-    (if (fpa--schema-key-get 'import-flag key)
-        (fpa--tree-get-value-from-path tree
-                                       (fpa--schema-key-get 'path key))))
-  (seq-filter #'identity
-              (seq-map (lambda (k)
-                         (fpa--tree-get-value-from-key tree k)) keys)))
+    ('id (nth 0 key))
+    ('path (nth 2 key))
+    ;; label: either is present, or last value of path
+    ('label (or (nth 3 key)
+                (symbol-name
+                 (seq-first (reverse (fpa--schema-key-get 'path key))))))))
 
-((IdCodice nil "01234567890")
- (Comune nil "SASSARI")
- (CodiceFiscale nil "09876543210")
- (Denominazione nil "AMMINISTRAZIONE BETA")
- (Comune nil "ROMA")
- (Provincia nil "RM")
- ((TipoDocumento nil "TD01") (TipoDocumento nil "TD01"))
- ((Divisa nil "EUR") (Divisa nil "EUR"))
- ((Data nil "2017-01-18") (Data nil "2017-01-20"))
- ((Numero nil "12") (Numero nil "456"))
- (((NumeroLinea nil "1") (NumeroLinea nil "2")) (NumeroLinea nil "1"))
- ((nil nil) nil)
- ((nil nil) nil)
- (((Descrizione nil "LA DESCRIZIONE DELLA FORNITURA PUO' SUPERARE I CENTO CARATTERI CHE RAPPRESENTAVANO IL PRECEDENTE LIMITE DIMENSIONALE. TALE LIMITE NELLA NUOVA VERSIONE E' STATO PORTATO A MILLE CARATTERI") (Descrizione nil "FORNITURE VARIE PER UFFICIO")) (Descrizione nil "PRESTAZIONE DEL SEGUENTE SERVIZIO PROFESSIONALE: LA DESCRIZIONE DELLA PRESTAZIONE PUO' SUPERARE I CENTO CARATTERI CHE RAPPRESENTAVANO IL PRECEDENTE LIMITE DIMENSIONALE. TALE LIMITE NELLA NUOVA VERSIONE E' STATO PORTATO A MILLE CARATTERI"))
- (((PrezzoUnitario nil "1.00") (PrezzoUnitario nil "2.00")) (PrezzoUnitario nil "2000.00"))
- (((PrezzoTotale nil "5.00") (PrezzoTotale nil "20.00")) (PrezzoTotale nil "2000.00"))
- (((AliquotaIVA nil "22.00") (AliquotaIVA nil "22.00")) (AliquotaIVA nil "22.00"))
- ((ModalitaPagamento nil "MP01") (ModalitaPagamento nil "MP19"))
- ((DataScadenzaPagamento nil "2017-02-18") (DataScadenzaPagamento nil "2017-02-20")))
+(defun fpa--tree-get-value-from-path (tree path)
+  "Return raw xml value from TREE, parsing PATH using
+`xml-get-children'. Path: (root child1 child2 leaf)"
+  (cond ((not path) tree)
+        (t (let ((children (xml-get-children tree (pop path))))
+             (if (= 1 (length children))
+                 (fpa--tree-get-value-from-path (car children) path)
+               (cl-loop for child in children
+                        collect
+                        (fpa--tree-get-value-from-path child path)))))))
 
+(defun fpa--tree-get-value-from-key (tree key)
+  "Search KEY in TREE and return enriched value. Only if flagged
+with non-nil `import' (see schema file specs). Return
+list (label id (value-or-values))."
+  (when (fpa--schema-key-get 'import-flag key)
+    (let* ((path (fpa--schema-key-get 'path key))
+           (value (fpa--tree-get-value-from-path tree path))
+           (label (fpa--schema-key-get 'label key))
+           (id (fpa--schema-key-get 'id key)))
+      (list label id value))))
+
+(defun fpa--tree-get-all-values (tree)
+  "Return all values from TREE using `fpa-schema-file'. Result
+ is an assoc list (`fpa-list') using `label' (see schema specs) as key."
+  (let* ((keys (fpa--schema-from-file))
+         (f (lambda (k) (fpa--tree-get-value-from-key tree k)))
+         (raw-values (seq-map f keys))
+         ;; remove all nils
+         (cleaned-values (seq-filter #'identity raw-values)))
+    cleaned-values))
+
+(defconst fpa--invoice-id-identifier '2-1-1-4
+  "Immutable identified for the invoice id, used to separate
+ different invoices in the same file.")
+
+(defconst fpa--lines-id-identifier '2-2-1-1
+  "Immutable identified for the line id, used to separate
+ different lines in the same file.")
+
+(defun fpa--count-multi (what fpa-list)
+  "Return number of WHAT in FPA-LIST."
+  (let ((id (pcase what
+              ('invoices fpa--invoice-id-identifier)
+              ('lines fpa--lines-id-identifier))))
+    (let* ((id--schema-key (assoc id (fpa--get-schema)))
+           (id--schema-label (fpa--schema-key-get 'label id--schema-key))
+           (fpa-ids-el (assoc id--schema-label fpa-list))
+           (fpa-ids (caddr fpa-ids-el)))
+      (if (and (symbolp (car   fpa-ids))
+               (not     (cadr  fpa-ids))
+               (stringp (caddr fpa-ids))) 1 ; element is not a list
+        (length fpa-ids)))))
+
+(defun fpa--invoices (fpa-list)
+  "Return list of invoices (formatted as fpa-lists) from FPA-LIST."
+  (let ((n (fpa--count-multi 'invoices fpa-list)))
+    (cl-loop for invoice-idx to (- n 1)
+             collect
+             (cl-loop for element in fpa-list
+                      for id = (cadr element)
+                                        ; split here all elements starting with 2 (fatturabody)
+                      for element-prefix = (substring (symbol-name id) 0 1)
+                      for header-flag = (string= element-prefix "1")
+                      collect (if header-flag element
+                                (list (car element)
+                                      (cadr element)
+                                      (nth invoice-idx (caddr element))))))))
+
+(defun fpa--reshape-for-multi-lines (fpa-list)
+  "Reshape the FPA-LIST repeating headers for each line. Return list
+of lines."
+  (let ((n (fpa--count-multi 'lines fpa-list)))
+    (if (= n 1) (list fpa-list) ; return unchanged
+      (cl-loop for line-id below n
+               collect
+               (cl-loop for element in fpa-list
+                        for id = (cadr element)
+                        ;; split elements starting with 2-2-1 (dettagliolinee)
+                        for element-prefix = (substring (symbol-name id) 0 5)
+                        for header-flag = (not (string= element-prefix "2-2-1"))
+                        collect (if header-flag element
+                                  (list (car element)
+                                        (cadr element)
+                                        (nth line-id (caddr element)))))))))
+
+(defun fpa--sanity-check-1 (fpa-list)
+  "Validate each element has length == 1."
+  (when (not (cl-loop for el in fpa-list
+                      always (stringp (car el))
+                      always (symbolp (cadr el))
+                      always (listp (caddr el))
+                      always (= (length (caddr el)) 3)
+                      finally return t))
+    (error "Sanity check #1: elements length <> 1.")))
+
+(defun fpa-file-to-invoice (file-name)
+  "Parse FILE-NAME and return list of lines by invoices."
+  (let* ((tree (fpa--xml-to-tree file-name))
+         (invoices (fpa--invoices (fpa--tree-get-all-values tree))))
+    (cl-loop for invoice in invoices
+             for lines = (fpa--reshape-for-multi-lines invoice)
+             never (cl-loop for line in lines do (fpa--sanity-check-1 line))
+             collect lines)))
+
+(fpa-file-to-invoice "c:/Users/c740/OneDrive/org/projects/fpa-reader/test/IT01234567890_FPA03.xml")
 
 (defconst fpa--separator ";" "Separator for export to string.")
 
@@ -197,7 +271,7 @@ strings."
                    (and (string-match "\\.xml" f)
                         (not (string-match "metaDato" f))
                         (not (string-match "p7m" f)))) file-names)))
-        (if (not valids) (error "No valid file remained")) valids))
+    (if (not valids) (error "No valid file remained")) valids))
 
 (defun fpa-file-to-buffer (file-name-or-names &optional save-to-file)
   "Convert FILE-NAME-OR-NAMES to buffer. Include all invoices in each

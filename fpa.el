@@ -71,9 +71,42 @@ from the schema file and the `fpa--root-header-prefixes'."
                (if p (intern (concat (symbol-name p) ":" rt))
                  (intern rt)))) fpa--root-header-prefixes))
 
+(defvar fpa--bad-regexps '("‚è" "‚" "‚" "‚¯"
+                          "‚‚" "‚" "‚–" "\202" )
+  "Regexps to replace with ''.")
+
 (defun fpa--xml-to-tree (file-name)
   "XML-parse FILE-NAME and return top node tree as xml tree."
-  (let ((parsed-xml-region (xml-parse-file file-name))
+  (let ((parsed-xml-region
+          (if (string= "p7m" (file-name-extension file-name))
+              (with-temp-buffer
+                (insert-file-contents file-name)
+                (dolist (rxp fpa--bad-regexps)
+                  (replace-regexp-in-region rxp  "" (point-min)))
+                (replace-regexp-in-region (rx (or "DataRiferimentoXTerminiPagamento"
+                                                  "DataRiferimentoTerminiPaOgamento"))
+                                          "DataRiferimentoTerminiPagamento" (point-min))
+                (replace-regexp-in-region "<Al\4" "<Al" (point-min))
+                (replace-regexp-in-region "<Al\3" "<Al" (point-min))
+                (goto-char (point-min))
+                (or
+                 (re-search-forward
+                  (rx (group "<?xml version" (one-or-more anychar) "FatturaElettronica>")) nil t)
+                 (progn
+                   (replace-regexp (rx "<FatturaElettronica" (one-or-more anychar) "FatturaElettronica>")
+                                   "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\&")
+                   (goto-char (point-min))
+                   (re-search-forward
+                    (rx (group "<?xml version" (one-or-more anychar) "FatturaElettronica>")) nil t))
+                 (progn
+                   (base64-decode-region (point-min) (point-max))
+                   (goto-char (point-min))
+                   (re-search-forward
+                    (rx (group "<?xml version"
+                               (one-or-more anychar)
+                               "FatturaElettronica>")) nil t)))
+                (xml-parse-region (match-beginning 0) (match-end 0)))
+            (xml-parse-file file-name)))
         (tree))
     (cl-loop for key in (fpa--root-keys)
              for tree = (assq key parsed-xml-region)
@@ -307,9 +340,10 @@ FILE-INFO is not-nil, append file info header columns."
   "Return only valid fpa files from FILE-NAMES."
   (let ((valids (seq-filter
                  (lambda (f)
-                   (and (string-match "\\.xml" f)
-                        (not (string-match "metaDato" f))
-                        (not (string-match "p7m" f)))) file-names)))
+                   (and (not (string-match "metaDato" f))
+                        ;; (not (string-match "p7m" f))
+                        (string-match "\\.xml" f)))
+                 file-names)))
     (if (not valids) (error "No valid file remained")) valids))
 
 (defun fpa-file-to-buffer (file-name-or-names &optional save-to-file)
@@ -328,9 +362,5 @@ file. FILE-NAME-OR-NAMES is a file path, or a list of file paths."
     (fpa--strings-to-buffer header line-strings save-to-file)))
 
 
-;; (fpa-file-to-buffer "c:/Users/c740/OneDrive/org/projects/fpa-reader/test/IT01234567890_FPA01.xml")
-;; (fpa-file-to-buffer (directory-files "~/org/projects/fpa-reader/test" t directory-files-no-dot-files-regexp) t)
 (fpa-file-to-buffer (directory-files "~/org/projects/MAMA/staging-area-no-import" t directory-files-no-dot-files-regexp) t)
-
-;; (fpa-file-to-buffer "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT03466010232_4mqSP.xml" t)
-;;; TODO consider case where value is nil. convert to empty and sanitize. before sanity check.
+;; (fpa-file-to-buffer "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT01974490128_00MXL.xml.p7m")

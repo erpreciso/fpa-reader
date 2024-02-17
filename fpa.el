@@ -67,7 +67,7 @@ helps with skimming the structure. Structure: (<identifier,
   "Return all possible keys for the root header, combining the root
 from the schema file and the `fpa--root-header-prefixes'."
   (seq-map (lambda (p)
-             (let ((rt (fpa--get-schema-root)))
+             (let ((rt "FatturaElettronica"))
                (if p (intern (concat (symbol-name p) ":" rt))
                  (intern rt)))) fpa--root-header-prefixes))
   
@@ -88,14 +88,41 @@ from the schema file and the `fpa--root-header-prefixes'."
   (caddr key))
 
 (let ((tree (fpa--xml-to-tree "c:/Users/c740/OneDrive/org/projects/fpa-reader/test/IT01234567890_FPA03.xml"))
-  (defun fpa--tree-get-value (tree keys)
-    (cond ((not keys) tree)
-          (t (let ((children (xml-get-children tree (pop keys))))
+      (keys (fpa--schema-from-file)))
+  (defun fpa--tree-get-value-from-path (tree path)
+    "path: (root child1 child2 leaf)"
+    (cond ((not path) tree)
+          (t (let ((children (xml-get-children tree (pop path))))
                (if (= 1 (length children))
-                   (fpa--get-value (car children) keys)
-               (cl-loop for child in children
-                        collect (fpa--get-value child keys)))))))
-  (fpa--get-value tree keys))  
+                   (fpa--tree-get-value-from-path (car children) path)
+                 (cl-loop for child in children
+                          collect (fpa--tree-get-value-from-path child path)))))))
+  (defun fpa--tree-get-value-from-key (tree key)
+    (if (fpa--schema-key-import-flag key)
+        (fpa--tree-get-value-from-path tree (fpa--schema-key-path key))))
+  (seq-filter #'identity
+              (seq-map (lambda (k) (fpa--tree-get-value-from-key tree k)) keys)))
+
+((IdCodice nil "01234567890")
+ (Comune nil "SASSARI")
+ (CodiceFiscale nil "09876543210")
+ (Denominazione nil "AMMINISTRAZIONE BETA")
+ (Comune nil "ROMA")
+ (Provincia nil "RM")
+ ((TipoDocumento nil "TD01") (TipoDocumento nil "TD01"))
+ ((Divisa nil "EUR") (Divisa nil "EUR"))
+ ((Data nil "2017-01-18") (Data nil "2017-01-20"))
+ ((Numero nil "12") (Numero nil "456"))
+ (((NumeroLinea nil "1") (NumeroLinea nil "2")) (NumeroLinea nil "1"))
+ ((nil nil) nil)
+ ((nil nil) nil)
+ (((Descrizione nil "LA DESCRIZIONE DELLA FORNITURA PUO' SUPERARE I CENTO CARATTERI CHE RAPPRESENTAVANO IL PRECEDENTE LIMITE DIMENSIONALE. TALE LIMITE NELLA NUOVA VERSIONE E' STATO PORTATO A MILLE CARATTERI") (Descrizione nil "FORNITURE VARIE PER UFFICIO")) (Descrizione nil "PRESTAZIONE DEL SEGUENTE SERVIZIO PROFESSIONALE: LA DESCRIZIONE DELLA PRESTAZIONE PUO' SUPERARE I CENTO CARATTERI CHE RAPPRESENTAVANO IL PRECEDENTE LIMITE DIMENSIONALE. TALE LIMITE NELLA NUOVA VERSIONE E' STATO PORTATO A MILLE CARATTERI"))
+ (((PrezzoUnitario nil "1.00") (PrezzoUnitario nil "2.00")) (PrezzoUnitario nil "2000.00"))
+ (((PrezzoTotale nil "5.00") (PrezzoTotale nil "20.00")) (PrezzoTotale nil "2000.00"))
+ (((AliquotaIVA nil "22.00") (AliquotaIVA nil "22.00")) (AliquotaIVA nil "22.00"))
+ ((ModalitaPagamento nil "MP01") (ModalitaPagamento nil "MP19"))
+ ((DataScadenzaPagamento nil "2017-02-18") (DataScadenzaPagamento nil "2017-02-20")))
+
 
 (defconst fpa--separator ";" "Separator for export to string.")
 

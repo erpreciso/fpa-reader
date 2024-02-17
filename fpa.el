@@ -83,178 +83,18 @@ from the schema file and the `fpa--root-header-prefixes'."
              for tree = (assq key parsed-xml-region)
              if tree return tree)))
 
-(defun fpa--tree-to-list (schema tree prefix)
-  "Convert fpa xml TREE to nested list. The algo walks in parallel
-the nested schema and the nested tree."
-  (cl-assert (= (length schema) 5))  ;; sanity check on schema
-  (let* ((schema-name         (nth 3 schema))
-         (schema-children     (nth 4 schema))
-         (schema-id           (nth 0 schema))
-         (schema-level   (fpa--get-level schema-id))
-         (new-prefix (if (> schema-level 2)
-                         ;; in prefix, include only levels below 2 to save ink
-                         (format "%s|%s" prefix schema-name)
-                       schema-name)))
-    (cond ((not schema-children) ;; exit recursion and return leaf
-           (let ((val (cond ((not (nth 2 tree)) "empty")
-                            ;; force string even if there are illegal nested
-                            (t (format "%s" (nth 2 tree)))))) 
-           (list schema-id new-prefix val)))
-          (schema-children
-           (cl-loop for schema-child in schema-children
-                    for child-name = (intern (nth 3 schema-child))
-                    for child-id = (nth 0 schema-child)
-                    for child-trees = (xml-get-children tree child-name)
-                    collect
-                    (list child-id child-name
-                          (if child-trees
-                              ;; recurse for one or multiple children
-                              ;; return always a list, even for single child
-                              (cl-loop for child-tree in child-trees
-                                       collect
-                                       (fpa--tree-to-list schema-child
-                                                          child-tree new-prefix))
-                            ;; if no children, no value, then return empty leaf
-                            (fpa--tree-to-list schema-child nil new-prefix))))))))
-
-(defun fpa--invoice-file-to-list (file-name)
-  "Convert invoice at FILE-NAME to nested list, calling the
-recursive `fpa--tree-to-list' function on a root schema and a
-root tree from file-name."
-  (let ((schema (fpa--get-schema))
-        (tree (fpa--xml-to-tree file-name)))
-    (fpa--tree-to-list schema tree "root")))
-
-(defun fpa--split-list-by-invoices (fpa-list)
-  "Return list of fpa-lists, each list one invoice in original
-FPA-LIST. It returns different fpa-lists repeating the header and
-keeping only one invoice data."
-  (let* ((header    (car fpa-list))
-         (body      (cadr fpa-list))
-         (body-id   (car body))
-         (body-name (cadr body))
-         (invoices  (caddr body)))
-    (cl-loop for invoice in invoices
-             collect (list header (list body-id body-name invoice)))))
-
-(defun fpa--get-lines-count (fpa-list)
-  "Return number of lines in FPA-LIST."
-  (let* ((body (cadr fpa-list))
-         (data1 (cadr body))
-         (data2 (caddr data1))
-         (lines (caddr (car (car data2)))))
-    (length lines)))
-
-(defun fpa--element-type (el)
-  "Return type of ELement by checking types of element' elements,
-and recurse in case of nested elements."
-  (cond ((not (listp el)) (error "invalid element"))
-        ((= (length el) 1) (fpa--element-type (car el))) ; recurse for nested
-        ((symbolp (car el)) 'ignore) ; illegal case
-        ((seq-every-p #'stringp el)  'leaf)
-        ((and (stringp (car el)) (symbolp (cadr el)))    'parent)
-        ((seq-every-p (lambda (e) (eq (fpa--element-type e) 'parent)) el)
-         'parents)
-        ((seq-every-p (lambda (e) (eq (fpa--element-type e) 'leaf)) el) 'leaves)
-        ((seq-every-p (lambda (e) (eq (fpa--element-type e) 'parents)) el)
-         'list-of-parents)))
-
-(ert-deftest fpa--test-element-type ()
-  (should (equal (fpa--element-type '(Id nil "406")) 'ignore))
-  (should (equal (fpa--element-type '("2.5" "Att" "e")) 'leaf))
-  (should (equal (fpa--element-type '(("2.5" "Att" "e"))) 'leaf))
-  (should (equal (fpa--element-type '(("1.11" "Ca" "L")
-                                      ("1.11" "Ca" "S"))) 'leaves))
-  (should (equal (fpa--element-type '((("1" IdP (("1" "dP" "IT")))
-                                       ("2" Cod (("2" "dC" "01")))))) 'parents))
-  (should (equal (fpa--element-type '("2" Tipo ("2" "Tipo" "e"))) 'parent))
-  (should (equal (fpa--element-type '((("1.1" N (("1.1" "Num" "1")))
-                                       ("1.2" Tip ("1.2" "Dat" "e")))
-                                      (("1.1" N (("1.1" "Num" "2")))
-                                       ("1.2" Tip ("1.2" "Dat" "e")))))
-                 'list-of-parents)))
-
-(defun fpa--flatten-list (fpa-list)
-  "Return flattened single-invoice FPA-LIST. This list is not really
-flat since it contains repetitions of multi-value fields such as
-lines. Therefore, this function must be followed by other reshape
-functions such as `fpa--extract-lines' and
-`fpa--list-to-dataframe'. Note that it is mandatory to run this
-function on a single-invoice list, otherwise there will be
-missing data."
-  (let ((out nil) (out2 nil) (out3 nil)) ;; list to collect <key value>
-    (defun fpa--flatten-el (el)
-      (if (and (listp el) (= (length el) 1))
-          (fpa--flatten-el (car el)) ;; recurse into single-element list
-        (pcase (fpa--element-type el)
-          ;; `leaf' exits recursion
-          ('leaf (push (list (cadr el) (fpa--sanitize-string (caddr el))) out))
-          ('ignore nil)
-          ;; other values recurse
-          ('leaves (seq-map (lambda (e) (fpa--flatten-el e)) el))
-          ('parent (fpa--flatten-el (caddr el))) ;; recurse in nested elements
-          ('parents (seq-map (lambda (e) (fpa--flatten-el (caddr e))) el))
-          ;; below the case when elements repeat, such as Linee
-          ('list-of-parents (cond ((string= (car (car (car el))) "2.2.2.1") (push el out2))
-                                  ((string= (car (car (car el))) "2.2.1.1") (push el out3))
-                                  (t (seq-map (lambda (e) (fpa--flatten-el e)) el)))))))
-    (fpa--flatten-el fpa-list)
-    (reverse out)))
-
-(fpa-file-to-buffer "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT016417907022024Z_00C5E.xml" t)
-
-(defun fpa--patch--merge-causale (flat)
-  "Patch: since `causale' can span multiple elements, this
- function merge them in a single element in FLAT. This function must run
- before `fpa--expand-flat-headers-and-lines'."
-  (let* ((causale-id "DatiGenerali|DatiGeneraliDocumento|Causale")
-         (causale-pos 107)
-         (causales (seq-filter (lambda (e) (string= (car e) causale-id)) flat))
-         (causales-n (length causales))
-         (new-causale (cl-loop for causale in causales
-                               for c-text = (cadr causale)
-                               for c = c-text then (format "|%s" c-text)
-                               concat c))
-         (new-causale-el (list (list causale-id new-causale)))
-         (before (seq-take flat causale-pos))
-         (after (seq-drop flat (+ causales-n causale-pos)))
-         (res (append before new-causale-el after)))
-    res))
-
-  
-(defun fpa--expand-flat-headers-and-lines (flattened-list)
-  "Return list of all common headers (elements that do not repeat)
-and each elements of each line of FLATTENED-LIST. This function
-relies on some hard-coded identifiers of where the first line is
-in the flattened list, and the string to identify
-it. (((headers) (line1)) ((headers) (line2)))"
-  (let* ((f (fpa--patch--merge-causale flattened-list)) ;patch for multi causale
-         (first-line-id 152)
-         (elements-per-line 22)
-         (number-of-lines 
-          ;; count number of lines
-          (cl-loop for i from first-line-id to (length f) by elements-per-line
-                   for name = (car (nth i f))
-                   for name-match = (substring name (- (length name) 11))
-                   if (string= name-match "NumeroLinea") 
-                   sum 1))
-         (last-line-element
-          (+ first-line-id (* number-of-lines elements-per-line)))
-         (lines
-          ;; For each line ...
-          (cl-loop for i to (- number-of-lines 1)
-                   collect
-                   ;; ... extract each line's elements
-                   (cl-loop for j to (- elements-per-line 1)
-                            for el-idx = (+ first-line-id
-                                            (+ j (* elements-per-line i)))
-                            collect (nth el-idx f))))
-         (headers
-          (append (cl-loop for i to (- first-line-id 1) collect (nth i f))
-                  (cl-loop for i from last-line-element to (- (length f) 1)
-                           collect (nth i f)))))
-    (cl-loop for line in lines
-             collect (append headers line))))
+(let ((tree (fpa--xml-to-tree "c:/Users/c740/OneDrive/org/projects/fpa-reader/test/IT01234567890_FPA03.xml"))
+      (keys2 '(FatturaElettronicaHeader DatiTrasmissione IdTrasmittente IdPaese))
+      (keys '(FatturaElettronicaBody DatiGenerali DatiGeneraliDocumento Causale))
+      (keys3 '(FatturaElettronicaBody DatiBeniServizi DettaglioLinee NumeroLinea)))
+  (defun fpa--tree-get-value (tree keys)
+    (cond ((not keys) tree)
+          (t (let ((children (xml-get-children tree (pop keys))))
+               (if (= 1 (length children))
+                   (fpa--get-value (car children) keys)
+               (cl-loop for child in children
+                        collect (fpa--get-value child keys)))))))
+  (fpa--get-value tree keys))  
 
 (defconst fpa--separator ";" "Separator for export to string.")
 
@@ -380,22 +220,3 @@ file. FILE-NAME-OR-NAMES is a file path, or a list of file paths."
     (fpa--strings-to-buffer
      (list header-with-file-name invoices-strings) save-to-file)))
 
-(let ((f "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT00967720285_6QBya.xml"))
-  (fpa-file-to-buffer f))
-
-(let ((f "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT00967720285_6Jafv.xml"))
-  (fpa-file-to-buffer f))
-
-(let ((fpa--output-file "~/org/projects/fpa-reader/out/all-invoices.csv"))
-  (fpa-file-to-buffer (directory-files "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import" t
-                                       directory-files-no-dot-files-regexp) t))
-
-(fpa--invoice-file-to-list "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT08973230967_8CExG.xml")
-
-(fpa-file-to-buffer  "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT08973230967_8CExG.xml" t)
-
-(let* ((fpa-list (fpa--invoice-file-to-list "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT00967720285_6Jafv.xml"))
-       (invoice (fpa--split-list-by-invoices fpa-list))
-       (flat (fpa--flatten-list invoice))
-       (patch (fpa--patch--merge-causale flat)))
-  (seq-map-indexed (lambda (f idx) (princ (format "%3s %s\n" idx f))) patch))

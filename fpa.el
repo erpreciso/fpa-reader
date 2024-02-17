@@ -79,14 +79,12 @@ from the schema file and the `fpa--root-header-prefixes'."
              for tree = (assq key parsed-xml-region)
              if tree return tree)))
 
-(defun fpa--schema-key-import-flag (key)
-  "Return the import flag from the schema key."
-  (cadr key))
-
-(defun fpa--schema-key-path (key)
-  "Return the path from the schema key."
-  (caddr key))
-
+(defun fpa--schema-key-get (what key)
+  "Return WHAT from the KEY schema key."
+  (pcase what
+    ('import-flag (nth 1 key))
+    ('path (nth 2 key))))
+ 
 (let ((tree (fpa--xml-to-tree "c:/Users/c740/OneDrive/org/projects/fpa-reader/test/IT01234567890_FPA03.xml"))
       (keys (fpa--schema-from-file)))
   (defun fpa--tree-get-value-from-path (tree path)
@@ -96,12 +94,15 @@ from the schema file and the `fpa--root-header-prefixes'."
                (if (= 1 (length children))
                    (fpa--tree-get-value-from-path (car children) path)
                  (cl-loop for child in children
-                          collect (fpa--tree-get-value-from-path child path)))))))
+                          collect
+                          (fpa--tree-get-value-from-path child path)))))))
   (defun fpa--tree-get-value-from-key (tree key)
-    (if (fpa--schema-key-import-flag key)
-        (fpa--tree-get-value-from-path tree (fpa--schema-key-path key))))
+    (if (fpa--schema-key-get 'import-flag key)
+        (fpa--tree-get-value-from-path tree
+                                       (fpa--schema-key-get 'path key))))
   (seq-filter #'identity
-              (seq-map (lambda (k) (fpa--tree-get-value-from-key tree k)) keys)))
+              (seq-map (lambda (k)
+                         (fpa--tree-get-value-from-key tree k)) keys)))
 
 ((IdCodice nil "01234567890")
  (Comune nil "SASSARI")

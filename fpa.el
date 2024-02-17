@@ -49,9 +49,7 @@ helps with skimming the structure. Structure: (<identifier,
     (goto-char (point-min))
     (read (current-buffer))))
 
-(defun fpa--get-schema-root ()
-  "Return root label of `fpa-schema-file'. It's used to parse the XML."
-  (cadddr (fpa--get-schema)))
+(car (fpa--get-schema))
 
 (defun fpa--get-level (id)
   "Return level, given ID format as `1.2.3'."
@@ -83,10 +81,8 @@ from the schema file and the `fpa--root-header-prefixes'."
              for tree = (assq key parsed-xml-region)
              if tree return tree)))
 
+
 (let ((tree (fpa--xml-to-tree "c:/Users/c740/OneDrive/org/projects/fpa-reader/test/IT01234567890_FPA03.xml"))
-      (keys2 '(FatturaElettronicaHeader DatiTrasmissione IdTrasmittente IdPaese))
-      (keys '(FatturaElettronicaBody DatiGenerali DatiGeneraliDocumento Causale))
-      (keys3 '(FatturaElettronicaBody DatiBeniServizi DettaglioLinee NumeroLinea)))
   (defun fpa--tree-get-value (tree keys)
     (cond ((not keys) tree)
           (t (let ((children (xml-get-children tree (pop keys))))

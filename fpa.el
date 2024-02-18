@@ -40,7 +40,11 @@ nested levels are represented by nested lists. Automatic indent
 helps with skimming the structure. Structure: (<identifier,
 1.2.3> <label> <children>)")
 
-(defvar fpa--output-file "~/org/projects/fpa-reader/out/out.csv")
+(defun fpa--output-file ()
+  "Return file name for output, timestamped."
+  (concat "~/org/projects/fpa-reader/out/"
+          (format-time-string "%Y-%m-%d-%H%M%S")
+          "-invoices.csv"))
 
 (defun fpa--schema-from-file ()
   "Return schema from file `fpa-schema-file' as Lisp object."
@@ -315,7 +319,7 @@ FILE-INFO is not-nil, append file info header columns."
 
 (defun fpa--strings-to-buffer (header line-strings &optional save-to-file)
   "Print HEADER and STRINGS to buffer. Optionally, save to file
-'fpa--output-file'."
+'(fpa--output-file)'."
   (let ((out-buffer "*FPA*"))
     (save-excursion
       (with-output-to-temp-buffer out-buffer
@@ -327,14 +331,14 @@ FILE-INFO is not-nil, append file info header columns."
           (princ (format "%s\n" line)))
         (pop-to-buffer out-buffer)
         (if save-to-file
-            (when (file-writable-p fpa--output-file)
-              (if (file-exists-p fpa--output-file)
+            (when (file-writable-p (fpa--output-file))
+              (if (file-exists-p (fpa--output-file))
                   (let ((backup-name
                          (concat (make-backup-file-name
-                                  fpa--output-file) 
+                                  (fpa--output-file)) 
                                  (format-time-string "%Y%m%dT%H%M%S"))))
-                    (copy-file fpa--output-file backup-name)))
-              (write-region nil nil fpa--output-file)))))))
+                    (copy-file (fpa--output-file) backup-name)))
+              (write-region nil nil (fpa--output-file))))))))
 
 (defun fpa--valid-files (file-names)
   "Return only valid fpa files from FILE-NAMES."
@@ -362,5 +366,5 @@ file. FILE-NAME-OR-NAMES is a file path, or a list of file paths."
     (fpa--strings-to-buffer header line-strings save-to-file)))
 
 
-(fpa-file-to-buffer (directory-files "~/org/projects/MAMA/staging-area-no-import" t directory-files-no-dot-files-regexp) t)
+(fpa-file-to-buffer (directory-files "~/org/projects/MAMA/inbox" t directory-files-no-dot-files-regexp) t)
 ;; (fpa-file-to-buffer "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT01974490128_00MXL.xml.p7m")

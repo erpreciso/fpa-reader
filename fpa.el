@@ -33,12 +33,13 @@
 
 (require 'xml)
 
-(defvar fpa-schema-file "~/org/projects/fpa-reader/fpa-schema.el"
-  "File containing the schema copy-pasted from
-`fatturapa.gov.it'. Schema file is a elisp-formatted list, where
-nested levels are represented by nested lists. Automatic indent
-helps with skimming the structure. Structure: (<identifier,
-1.2.3> <label> <children>)")
+(defvar fpa--schema-file-name "~/org/projects/fpa-reader/fpa-schema.el"
+  "File containing the schema to parse `FatturaPA' xml.
+
+Schema file is a elisp-formatted list derived from
+`fatturapa.gov.it', where nested levels are represented by nested
+lists. Automatic indent helps with skimming the
+structure. Structure: (<identifier, 1.2.3> <label> <children>)")
 
 (defun fpa--output-file ()
   "Return file name for output, timestamped."
@@ -46,23 +47,17 @@ helps with skimming the structure. Structure: (<identifier,
           (format-time-string "%Y-%m-%d-%H%M%S")
           "-invoices.csv"))
 
-(defun fpa--schema-from-file ()
-  "Return schema from file `fpa-schema-file' as Lisp object."
+(defun fpa--schema ()
+  "Return schema from file `fpa--schema-file-name' as Lisp object.
+
+Schema is formatted as a list with this structure:
+ (<identifier symbol 1-1-2>
+ <import t or nil>
+ <search path in xml (FatturaElettronicaHeader DatiTrasmissione ProgressivoInvio))."
   (with-temp-buffer
-    (insert-file-contents fpa-schema-file)
+    (insert-file-contents fpa--schema-file-name)
     (goto-char (point-min))
     (read (current-buffer))))
-
-(defun fpa--get-level (id)
-  "Return level, given ID format as `1.2.3'."
-  (pcase id
-    ("root" 0)
-    ((rx string-start num (= 0 (group "." (one-or-more num))) string-end) 1)
-    ((rx string-start num (= 1 (group "." (one-or-more num))) string-end) 2)
-    ((rx string-start num (= 2 (group "." (one-or-more num))) string-end) 3)
-    ((rx string-start num (= 3 (group "." (one-or-more num))) string-end) 4)
-    ((rx string-start num (= 4 (group "." (one-or-more num))) string-end) 5)
-    ((rx string-start num (= 5 (group "." (one-or-more num))) string-end) 6)))
 
 (defvar fpa--root-header-prefixes '(ns0 n0 ns1 ns2 ns3 b p nil)
   "List of possible prefix headers for the top level.")
@@ -80,37 +75,53 @@ from the schema file and the `fpa--root-header-prefixes'."
   "Regexps to replace with ''.")
 
 (defun fpa--xml-to-tree (file-name)
-  "XML-parse FILE-NAME and return top node tree as xml tree."
+  "XML-parse FILE-NAME and return top node tree as xml tree.
+
+This loader is heavily patched and is built incrementally with
+more cases as soon as they manifest."
   (let ((parsed-xml-region
-          (if (string= "p7m" (file-name-extension file-name))
-              (with-temp-buffer
-                (insert-file-contents file-name)
-                (dolist (rxp fpa--bad-regexps)
-                  (replace-regexp-in-region rxp  "" (point-min)))
-                (replace-regexp-in-region (rx (or "DataRiferimentoXTerminiPagamento"
-                                                  "DataRiferimentoTerminiPaOgamento"))
-                                          "DataRiferimentoTerminiPagamento" (point-min))
-                (replace-regexp-in-region "<Al\4" "<Al" (point-min))
-                (replace-regexp-in-region "<Al\3" "<Al" (point-min))
-                (goto-char (point-min))
-                (or
-                 (re-search-forward
-                  (rx (group "<?xml version" (one-or-more anychar) "FatturaElettronica>")) nil t)
-                 (progn
-                   (replace-regexp (rx "<FatturaElettronica" (one-or-more anychar) "FatturaElettronica>")
-                                   "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\&")
-                   (goto-char (point-min))
-                   (re-search-forward
-                    (rx (group "<?xml version" (one-or-more anychar) "FatturaElettronica>")) nil t))
-                 (progn
-                   (base64-decode-region (point-min) (point-max))
-                   (goto-char (point-min))
-                   (re-search-forward
-                    (rx (group "<?xml version"
-                               (one-or-more anychar)
-                               "FatturaElettronica>")) nil t)))
-                (xml-parse-region (match-beginning 0) (match-end 0)))
-            (xml-parse-file file-name)))
+         (if (string= "p7m" (file-name-extension file-name))
+             (with-temp-buffer
+               (insert-file-contents file-name)
+               ;; replace bad regexps
+               (dolist (rxp fpa--bad-regexps)
+                 (replace-regexp-in-region rxp "" (point-min)))
+               ;; replace illegal headers
+               (replace-regexp-in-region
+                (rx (or "DataRiferimentoXTerminiPagamento"
+                        "DataRiferimentoTerminiPaOgamento"))
+                "DataRiferimentoTerminiPagamento" (point-min))
+               ;; replace other strange characters
+               (replace-regexp-in-region "<Al\4" "<Al" (point-min))
+               (replace-regexp-in-region "<Al\3" "<Al" (point-min))
+               (goto-char (point-min))
+               (or
+                ;; legal version
+                (re-search-forward
+                 (rx (group "<?xml version"
+                            (one-or-more anychar)
+                            "FatturaElettronica>")) nil t)
+                ;; illegal version
+                (progn
+                  (replace-regexp
+                   (rx "<FatturaElettronica" (one-or-more anychar)
+                       "FatturaElettronica>")
+                   "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\&")
+                  (goto-char (point-min))
+                  (re-search-forward
+                   (rx (group "<?xml version"
+                              (one-or-more anychar)
+                              "FatturaElettronica>")) nil t))
+                ;; base-64 encoded version
+                (progn
+                  (base64-decode-region (point-min) (point-max))
+                  (goto-char (point-min))
+                  (re-search-forward
+                   (rx (group "<?xml version"
+                              (one-or-more anychar)
+                              "FatturaElettronica>")) nil t)))
+               (xml-parse-region (match-beginning 0) (match-end 0)))
+           (xml-parse-file file-name)))
         (tree))
     (cl-loop for key in (fpa--root-keys)
              for tree = (assq key parsed-xml-region)
@@ -152,9 +163,9 @@ list (label id (value-or-values))."
       (list label id value))))
 
 (defun fpa--tree-get-all-values (tree)
-  "Return all values from TREE using `fpa-schema-file'. Result
+  "Return all values from TREE using `fpa--schema-file-name'. Result
  is an assoc list (`fpa-list') using `label' (see schema specs) as key."
-  (let* ((keys (fpa--schema-from-file))
+  (let* ((keys (fpa--schema))
          (f (lambda (k) (fpa--tree-get-value-from-key tree k)))
          (raw-values (seq-map f keys))
          ;; remove all nils
@@ -302,9 +313,9 @@ lines-specific file info."
                            append (list line-ext))))
 
 (defun fpa--header-string (&optional file-info)
-  "Return string representing header, from `fpa-schema-file'. If
+  "Return string representing header, from `fpa--schema-file-name'. If
 FILE-INFO is not-nil, append file info header columns."
-  (let* ((schema (fpa--schema-from-file))
+  (let* ((schema (fpa--schema))
          (keys (cl-loop for key in schema
                         if (fpa--schema-key-get 'import-flag key)
                         collect (fpa--schema-key-get 'label key)))

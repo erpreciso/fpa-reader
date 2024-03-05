@@ -37,9 +37,9 @@
   "File containing the schema to parse `FatturaPA' xml.
 
 Schema file is a elisp-formatted list derived from
-`fatturapa.gov.it', where nested levels are represented by nested
-lists. Automatic indent helps with skimming the
-structure. Structure: (<identifier, 1.2.3> <label> <children>)")
+`fatturapa.gov.it'.  Each element contains the identifier, the
+flag if the elements is to be imported, the 'path' to extract the
+corresponding element from the XML, and a label.")
 
 (defun fpa--output-file ()
   "Return file name for output, timestamped."
@@ -53,7 +53,8 @@ structure. Structure: (<identifier, 1.2.3> <label> <children>)")
 Schema is formatted as a list with this structure:
  (<identifier symbol 1-1-2>
  <import t or nil>
- <search path in xml (FatturaElettronicaHeader DatiTrasmissione ProgressivoInvio))."
+ <search path in xml (FatturaElettronicaHeader DatiTrasmissione ProgressivoInvio)
+ <label string>)."
   (with-temp-buffer
     (insert-file-contents fpa--schema-file-name)
     (goto-char (point-min))
@@ -72,7 +73,11 @@ from the schema file and the `fpa--root-header-prefixes'."
 
 (defvar fpa--bad-regexps '("‚è" "‚" "‚" "‚¯"
                           "‚‚" "‚" "‚–" "\202" )
-  "Regexps to replace with ''.")
+  "Regexps to replace with ''.
+
+There are invalid characters in some examples of fatture,
+especially the ones processed with digital signature, therefore
+they are replaced with '' during parsing.")
 
 (defun fpa--xml-to-tree (file-name)
   "XML-parse FILE-NAME and return top node tree as xml tree.
@@ -127,10 +132,12 @@ more cases as soon as they manifest."
              for tree = (assq key parsed-xml-region)
              if tree return tree)))
 
-;; TODO convert schema-keys to struct using cl-struct
-
 (defun fpa--schema-key-get (what key)
-  "Return WHAT from the KEY schema key."
+  "Return WHAT from the KEY schema key.
+
+WHAT can be a symbol: `import-flag', `id', `path', or `label'.
+If `label' is not present, the last value of path is converted to
+string and returned as label."
   (pcase what
     ('import-flag (nth 1 key))
     ('id (nth 0 key))
@@ -141,8 +148,9 @@ more cases as soon as they manifest."
                  (seq-first (reverse (fpa--schema-key-get 'path key))))))))
 
 (defun fpa--tree-get-value-from-path (tree path)
-  "Return raw xml value from TREE, parsing PATH using
-`xml-get-children'. Path: (root child1 child2 leaf)"
+  "Return raw xml from TREE, parsing PATH w/ `xml-get-children'.
+
+Path: (root child1 child2 .. childN leaf)"
   (cond ((not path) tree)
         (t (let ((children (xml-get-children tree (pop path))))
              (if (= 1 (length children))
@@ -152,9 +160,10 @@ more cases as soon as they manifest."
                         (fpa--tree-get-value-from-path child path)))))))
 
 (defun fpa--tree-get-value-from-key (tree key)
-  "Search KEY in TREE and return enriched value. Only if flagged
-with non-nil `import' (see schema file specs). Return
-list (label id (value-or-values))."
+  "Search KEY in TREE and return enriched value.
+
+Only if flagged with non-nil `import' (see schema file
+specs).  Return list (label id (value-or-values))."
   (when (fpa--schema-key-get 'import-flag key)
     (let* ((path (fpa--schema-key-get 'path key))
            (value (fpa--tree-get-value-from-path tree path))
@@ -163,8 +172,10 @@ list (label id (value-or-values))."
       (list label id value))))
 
 (defun fpa--tree-get-all-values (tree)
-  "Return all values from TREE using `fpa--schema-file-name'. Result
- is an assoc list (`fpa-list') using `label' (see schema specs) as key."
+  "Return all values from TREE using `fpa--schema-file-name'.
+
+Result is an assoc list (`fpa-list' as input in following
+ functions) using `label' (see schema specs) as key."
   (let* ((keys (fpa--schema))
          (f (lambda (k) (fpa--tree-get-value-from-key tree k)))
          (raw-values (seq-map f keys))
@@ -173,15 +184,17 @@ list (label id (value-or-values))."
     cleaned-values))
 
 (defconst fpa--invoice-id-identifier '2-1-1-4
-  "Immutable identified for the invoice id, used to separate
+  "Immutable identifier for the invoice id, used to separate
  different invoices in the same file.")
 
 (defconst fpa--lines-id-identifier '2-2-1-1
-  "Immutable identified for the line id, used to separate
+  "Immutable identifier for the line id, used to separate
  different lines in the same file.")
 
 (defun fpa--count-multi (what fpa-list)
-  "Return number of WHAT in FPA-LIST."
+  "Return number of WHAT in FPA-LIST.
+
+WHAT is either `invoices' or `lines'."
   (let ((id (pcase what
               ('invoices fpa--invoice-id-identifier)
               ('lines fpa--lines-id-identifier))))
@@ -212,7 +225,11 @@ list (label id (value-or-values))."
 
 (defun fpa--reshape-for-multi-lines (fpa-list)
   "Reshape the FPA-LIST repeating headers for each line. Return list
-of lines."
+of lines.
+
+Since an invoice can contains multiple lines, this functions
+return a list of `fpa-list' with all the header fields for each
+line, as example invoice recipient, invoice number, etc."
   (let ((n (fpa--count-multi 'lines fpa-list)))
     (if (= n 1) (list fpa-list) ; return unchanged
       (cl-loop for line-id below n
@@ -274,7 +291,11 @@ Return a list: (<invoices>
 (defconst fpa--string-max-length 1099 "Max length for parser.")
 
 (defun fpa--sanitize-string (str)
-  "Remove invalid characters from string STR, and truncate if too long."
+  "Remove invalid characters from string STR, and truncate if too long.
+
+Invalid characters are in
+`fpa--invalid-regexps-in-string' (including the separator).  Max
+length of string is defined in `fpa--string-max-length'."
   (cl-loop for rx in fpa--invalid-regexps-in-string
            for cleaned = (replace-regexp-in-string rx "" str) then
            (replace-regexp-in-string rx "" cleaned)
@@ -283,8 +304,10 @@ Return a list: (<invoices>
            finally return shortened))
 
 (defun fpa--line-to-string (line &optional file-info)
-  "Convert line to string. Use separator `fpa--separator'. Optional,
-append FILE-INFO (list of file info) at the end of the line."
+  "Convert line to string.
+
+Use separator `fpa--separator'.  Optional, append FILE-INFO (list
+of file info) at the end of the line."
   (let ((str (cl-loop for el in line
                       for el-v = (cadr el)
                       for el-s = el-v then (format "%s%s" fpa--separator el-v)
@@ -295,9 +318,10 @@ append FILE-INFO (list of file info) at the end of the line."
                              concat i-s)) str)))
 
 (defun fpa--file-info (&optional file-name)
-  "Return header or file info list for FILE-NAME. If no FILE-NAME is
-provided, return list of header column names for the
-lines-specific file info."
+  "Return header or file info list for FILE-NAME.
+
+If no FILE-NAME is provided, return list of header column names
+for the lines-specific file info."
   (cond
    ;; return header
    ((not file-name) (list "File name"))
@@ -313,8 +337,9 @@ lines-specific file info."
                            append (list line-ext))))
 
 (defun fpa--header-string (&optional file-info)
-  "Return string representing header, from `fpa--schema-file-name'. If
-FILE-INFO is not-nil, append file info header columns."
+  "Return string representing header, from `fpa--schema-file-name'.
+
+If FILE-INFO is not-nil, append file info header columns."
   (let* ((schema (fpa--schema))
          (keys (cl-loop for key in schema
                         if (fpa--schema-key-get 'import-flag key)
@@ -329,8 +354,9 @@ FILE-INFO is not-nil, append file info header columns."
                          concat col-s)) header)))
 
 (defun fpa--strings-to-buffer (header line-strings &optional save-to-file)
-  "Print HEADER and STRINGS to buffer. Optionally, save to file
-'(fpa--output-file)'."
+  "Print HEADER and STRINGS to buffer.
+
+Optionally, save to file `fpa--output-file'."
   (let ((out-buffer "*FPA*"))
     (save-excursion
       (with-output-to-temp-buffer out-buffer
@@ -362,8 +388,13 @@ FILE-INFO is not-nil, append file info header columns."
     (if (not valids) (error "No valid file remained")) valids))
 
 (defun fpa-file-to-buffer (file-name-or-names &optional save-to-file)
-  "Convert FILE-NAME-OR-NAMES to buffer. Include all invoices in each
-file. FILE-NAME-OR-NAMES is a file path, or a list of file paths."
+  "Convert FILE-NAME-OR-NAMES to buffer.
+
+Include all invoices in each file.  FILE-NAME-OR-NAMES is a file
+path, or a list of file paths.
+Example: `(fpa-file-to-buffer
+           (directory-files \"~/org/projects/MAMA/inbox\" t
+                         directory-files-no-dot-files-regexp) t)'"
   ;; convert single name to list
   (let* ((file-names-raw (if (listp file-name-or-names)
                              file-name-or-names (list file-name-or-names)))
@@ -375,7 +406,3 @@ file. FILE-NAME-OR-NAMES is a file path, or a list of file paths."
                                 do (message (format "Working on %s" file))
                                 append (fpa--file-to-line-strings file))))
     (fpa--strings-to-buffer header line-strings save-to-file)))
-
-
-(fpa-file-to-buffer (directory-files "~/org/projects/MAMA/inbox" t directory-files-no-dot-files-regexp) t)
-;; (fpa-file-to-buffer "c:/Users/c740/OneDrive/org/projects/MAMA/staging-area-no-import/IT01974490128_00MXL.xml.p7m")

@@ -71,8 +71,10 @@ from the schema file and the `fpa--root-header-prefixes'."
                (if p (intern (concat (symbol-name p) ":" rt))
                  (intern rt)))) fpa--root-header-prefixes))
 
-(defvar fpa--bad-regexps '("‚è" "‚" "‚" "‚¯"
-                          "‚‚" "‚" "‚–" "\202" )
+(defvar fpa--bad-regexps '("‚" "‚è" "‚" "‚"
+                           "‚¯" "‚_"
+                           "‚‚" "‚" "‚–" "‚“"
+                           "º" "‚º" "" "‚" "\202")
   "Regexps to replace with ''.
 
 There are invalid characters in some examples of fatture,
@@ -99,6 +101,8 @@ more cases as soon as they manifest."
                ;; replace other strange characters
                (replace-regexp-in-region "<Al\4" "<Al" (point-min))
                (replace-regexp-in-region "<Al\3" "<Al" (point-min))
+               (replace-regexp-in-region "ImpwortoPagamento"
+                                         "ImportoPagamento" (point-min))
                (goto-char (point-min))
                (or
                 ;; legal version
@@ -198,7 +202,7 @@ WHAT is either `invoices' or `lines'."
   (let ((id (pcase what
               ('invoices fpa--invoice-id-identifier)
               ('lines fpa--lines-id-identifier))))
-    (let* ((id--schema-key (assoc id (fpa--get-schema)))
+    (let* ((id--schema-key (assoc id (fpa--schema)))
            (id--schema-label (fpa--schema-key-get 'label id--schema-key))
            (fpa-ids-el (assoc id--schema-label fpa-list))
            (fpa-ids (caddr fpa-ids-el)))

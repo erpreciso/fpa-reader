@@ -433,7 +433,44 @@ Example: `(fpa-file-to-buffer
                                 append (fpa--file-to-line-strings file))))
     (fpa--strings-to-buffer header line-strings save-to-file)))
 
-;;;; hydra
+;;;; utils
+;;;;; get headers
+
+(defun fpa--get-header (file-name)
+  "Parse FILE-NAME and return list (header value) for `header' fields."
+  (let* ((tree (fpa--xml-to-tree file-name))
+         (fpa-list (fpa--tree-get-all-values tree))
+         (line (fpa--prepare-line
+                (cl-loop for element in fpa-list
+                         for id = (cadr element)
+                         for element-prefix = (substring (symbol-name id) 0 1)
+                         for header-flag = (string= element-prefix "1")
+                         if header-flag collect element)))
+         (formatted (cl-loop for element in line
+                             for format-string = "    %s: %s" then "\n    %s: %s"
+                             concat (format format-string (car element) (cadr element))))
+         (file-info (format "  File: %s\n" (file-name-base file-name))))
+    (concat file-info formatted)))
+
+(defun fpa-headers (file-name-or-names)
+  "Return headers of valid files in FILE-NAME-OR-NAMES."
+  (let* ((file-names-list (if (listp file-name-or-names)
+                              file-name-or-names (list file-name-or-names)))
+         (file-names (or (fpa--valid-files file-names-list)
+                         (error "Cannot continue. No files.")))
+         (result (cl-loop for file-name in file-names
+                          for header = (fpa--get-header file-name)
+                          for format-string = "%s" then "\n\n%s"
+                          concat (format format-string header)))
+         (result-temp-buffer-name "*invoices headers*"))
+    (save-excursion
+      (with-output-to-temp-buffer result-temp-buffer-name
+        (goto-char (point-min))
+        (princ "Headers\n-------\n\n")
+        (princ result)
+        (pop-to-buffer result-temp-buffer-name)))))
+
+;;;;; hydra
 
 (require 'hydra)
 
@@ -444,10 +481,12 @@ Example: `(fpa-file-to-buffer
      _f_: convert file at point, or marked, from dired
      _a_: convert all files in current directory in dired
      _c_: count valid files among the dired marked
+     _h_: get headers of file at point, or market, from dired
 "
   ("f" (fpa-file-to-buffer (dired-get-marked-files)))
   ("a" (progn (dired-mark-subdir-files)
               (fpa-file-to-buffer (dired-get-marked-files))))
   ("b" hydra-shortcuts/body "back")
   ("c" (fpa--count-valid-files (dired-get-marked-files)))
+  ("h" (fpa-headers (dired-get-marked-files)))
   ("q" nil "quit"))

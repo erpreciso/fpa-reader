@@ -434,10 +434,11 @@ Example: `(fpa-file-to-buffer
     (fpa--strings-to-buffer header line-strings save-to-file)))
 
 ;;;; utils
+
 ;;;;; get headers
 
 (defun fpa--get-header (file-name)
-  "Parse FILE-NAME and return list (header value) for `header' fields."
+  "Parse FILE-NAME and return list (file-name \"header: value\") for `header' fields."
   (let* ((tree (fpa--xml-to-tree file-name))
          (fpa-list (fpa--tree-get-all-values tree))
          (line (fpa--prepare-line
@@ -448,9 +449,37 @@ Example: `(fpa-file-to-buffer
                          if header-flag collect element)))
          (formatted (cl-loop for element in line
                              for format-string = "    %s: %s" then "\n    %s: %s"
-                             concat (format format-string (car element) (cadr element))))
-         (file-info (format "  File: %s\n" (file-name-base file-name))))
-    (concat file-info formatted)))
+                             concat (format format-string (car element) (cadr element)))))
+    (list (file-name-base file-name) formatted)))
+
+(defun fpa--intersect-strings (strings)
+  "Return intersection with wildcards of list STRINGS."
+  (cl-assert (> (length strings) 1))
+  (cl-loop for i from 0 to (seq-min (seq-map #'length strings))
+           for a = (car strings)
+           for char = (seq-elt a i)
+           for check = (lambda (reduction checked-string)
+                         (and reduction (eq char (seq-elt checked-string i))))
+           if (seq-reduce check strings t) collect (seq-elt a i) into result
+           else return (concat result "*")))
+  
+(defun fpa--dedup-headers (headers)
+  "Dedup HEADERS (file-name header) returning list with wildcards."
+  (let* ((aheaders nil)
+         (aheaders (cl-loop for header in headers
+                            for file-name = (car header)
+                            for desc = (cadr header)
+                            for val = (assoc desc aheaders)
+                            if val do (push file-name (cadr val))
+                            else do (push (list desc (list file-name)) aheaders)
+                            finally return aheaders)))
+    (cl-loop for aheader in aheaders
+             for files = (cadr aheader)
+             for files-n = (length files)
+             for desc = (car aheader)
+             if (eq files-n 1) collect (list (car files) desc) into result
+             else collect (list (fpa--intersect-strings files) desc) into result
+             finally return result)))
 
 (defun fpa-headers (file-name-or-names)
   "Return headers of valid files in FILE-NAME-OR-NAMES."
@@ -458,10 +487,16 @@ Example: `(fpa-file-to-buffer
                               file-name-or-names (list file-name-or-names)))
          (file-names (or (fpa--valid-files file-names-list)
                          (error "Cannot continue. No files.")))
-         (result (cl-loop for file-name in file-names
-                          for header = (fpa--get-header file-name)
+         (headers (cl-loop for file-name in file-names
+                      collect (fpa--get-header file-name)))
+         (dedup-headers (fpa--dedup-headers headers))
+         ;; (dedup-headers headers)
+         (result (cl-loop for header in dedup-headers
                           for format-string = "%s" then "\n\n%s"
-                          concat (format format-string header)))
+                          for file-name = (car header)
+                          for file-header = (cadr header)
+                          for formatted = (format "  File: %s\n%s" file-name file-header)
+                          concat (format format-string formatted)))
          (result-temp-buffer-name "*invoices headers*"))
     (save-excursion
       (with-output-to-temp-buffer result-temp-buffer-name

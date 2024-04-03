@@ -31,8 +31,9 @@
 
 ;;; Code:
 
+;;;; convert xml
+
 (require 'xml)
-(require 'csv-mode)
 
 (defvar fpa--schema-file-name "~/org/projects/fpa-reader/fpa-schema.el"
   "File containing the schema to parse `FatturaPA' xml.
@@ -41,13 +42,6 @@ Schema file is a elisp-formatted list derived from
 `fatturapa.gov.it'.  Each element contains the identifier, the
 flag if the elements is to be imported, the 'path' to extract the
 corresponding element from the XML, and a label.")
-
-;; TODO transform to variable customizable
-(defun fpa--output-file ()
-  "Return file name for output, timestamped."
-  (concat "~/org/projects/fpa-reader/out/"
-          (format-time-string "%Y-%m-%d-%H%M%S")
-          "-invoices.csv"))
 
 (defun fpa--schema ()
   "Return schema from file `fpa--schema-file-name' as Lisp object.
@@ -82,6 +76,16 @@ from the schema file and the `fpa--root-header-prefixes'."
 There are invalid characters in some examples of fatture,
 especially the ones processed with digital signature, therefore
 they are replaced with '' during parsing.")
+
+(defun fpa--valid-files (file-names)
+  "Return only valid fpa files from FILE-NAMES."
+  (let ((valids (seq-filter
+                 (lambda (f)
+                   (and (not (string-match "metaDato" f))
+                        ;; (not (string-match "p7m" f))
+                        (string-match "\\.xml" f)))
+                 file-names)))
+    (if (not valids) (error "No valid file remained")) valids))
 
 (defun fpa--xml-to-tree (file-name)
   "XML-parse FILE-NAME and return top node tree as xml tree.
@@ -359,6 +363,17 @@ If FILE-INFO is not-nil, append file info header columns."
                          for col-s = (format "%s%s" fpa--separator col)
                          concat col-s)) header)))
 
+;;;; output to buffer and/or file
+
+(require 'csv-mode)
+
+;; TODO transform to variable customizable
+(defun fpa--output-file ()
+  "Return file name for output, timestamped."
+  (concat "~/org/projects/fpa-reader/out/"
+          (format-time-string "%Y-%m-%d-%H%M%S")
+          "-invoices.csv"))
+
 (defun fpa--strings-to-buffer (header line-strings &optional save-to-file)
   "Print HEADER and STRINGS to buffer in csv-mode.
 
@@ -384,16 +399,6 @@ Optionally, save to file `fpa--output-file'."
                                  (format-time-string "%Y%m%dT%H%M%S"))))
                     (copy-file (fpa--output-file) backup-name)))
               (write-region nil nil (fpa--output-file))))))))
-
-(defun fpa--valid-files (file-names)
-  "Return only valid fpa files from FILE-NAMES."
-  (let ((valids (seq-filter
-                 (lambda (f)
-                   (and (not (string-match "metaDato" f))
-                        ;; (not (string-match "p7m" f))
-                        (string-match "\\.xml" f)))
-                 file-names)))
-    (if (not valids) (error "No valid file remained")) valids))
 
 (defun fpa-file-to-buffer (file-name-or-names &optional save-to-file)
   "Convert FILE-NAME-OR-NAMES to buffer.

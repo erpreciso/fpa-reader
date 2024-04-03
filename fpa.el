@@ -424,5 +424,3 @@ Example: `(fpa-file-to-buffer
                                 do (message (format "Working on %s" file))
                                 append (fpa--file-to-line-strings file))))
     (fpa--strings-to-buffer header line-strings save-to-file)))
-
-(fpa-file-to-buffer "c:/Users/c740/org/projects/fpa-reader/test/IT01234567890_FPA03.xml")

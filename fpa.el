@@ -32,6 +32,7 @@
 ;;; Code:
 
 (require 'xml)
+(require 'csv-mode)
 
 (defvar fpa--schema-file-name "~/org/projects/fpa-reader/fpa-schema.el"
   "File containing the schema to parse `FatturaPA' xml.
@@ -41,6 +42,7 @@ Schema file is a elisp-formatted list derived from
 flag if the elements is to be imported, the 'path' to extract the
 corresponding element from the XML, and a label.")
 
+;; TODO transform to variable customizable
 (defun fpa--output-file ()
   "Return file name for output, timestamped."
   (concat "~/org/projects/fpa-reader/out/"
@@ -358,7 +360,7 @@ If FILE-INFO is not-nil, append file info header columns."
                          concat col-s)) header)))
 
 (defun fpa--strings-to-buffer (header line-strings &optional save-to-file)
-  "Print HEADER and STRINGS to buffer.
+  "Print HEADER and STRINGS to buffer in csv-mode.
 
 Optionally, save to file `fpa--output-file'."
   (let ((out-buffer "*FPA*"))
@@ -371,6 +373,8 @@ Optionally, save to file `fpa--output-file'."
         (dolist (line line-strings)
           (princ (format "%s\n" line)))
         (pop-to-buffer out-buffer)
+        (csv-mode)
+        (csv-align-mode)
         (if save-to-file
             (when (file-writable-p (fpa--output-file))
               (if (file-exists-p (fpa--output-file))
@@ -410,3 +414,5 @@ Example: `(fpa-file-to-buffer
                                 do (message (format "Working on %s" file))
                                 append (fpa--file-to-line-strings file))))
     (fpa--strings-to-buffer header line-strings save-to-file)))
+
+(fpa-file-to-buffer "c:/Users/c740/org/projects/fpa-reader/test/IT01234567890_FPA03.xml")

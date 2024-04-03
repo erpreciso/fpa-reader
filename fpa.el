@@ -318,14 +318,19 @@ length of string is defined in `fpa--string-max-length'."
 
 Use separator `fpa--separator'.  Optional, append FILE-INFO (list
 of file info) at the end of the line."
-  (let ((str (cl-loop for el in line
-                      for el-v = (cadr el)
-                      for el-s = el-v then (format "%s%s" fpa--separator el-v)
-                      concat el-s)))
-    (if (and file-info (listp file-info))
-        (concat str (cl-loop for info in file-info
-                             for i-s = (format "%s%s" fpa--separator info)
-                             concat i-s)) str)))
+  ;; check if fpa-separator same as csv-separator, and warn user
+  (if (or (member fpa--separator csv-separators)
+           (yes-or-no-p (concat "fpa--separator not in csv-separators.  "
+                                "csv-mode might not work.  Continue?")))
+      (let ((str (cl-loop for el in line
+                          for el-v = (cadr el)
+                          for el-s = el-v then (format "%s%s" fpa--separator el-v)
+                          concat el-s)))
+        (if (and file-info (listp file-info))
+            (concat str (cl-loop for info in file-info
+                                 for i-s = (format "%s%s" fpa--separator info)
+                                 concat i-s)) str))
+    (error "Aborted")))
 
 (defun fpa--file-info (&optional file-name)
   "Return header or file info list for FILE-NAME.

@@ -85,7 +85,7 @@ they are replaced with '' during parsing.")
                         ;; (not (string-match "p7m" f))
                         (string-match "\\.xml" f)))
                  file-names)))
-    (if (not valids) (error "No valid file remained")) valids))
+    (if (not valids) (message "No valid file remained")) valids))
 
 (defun fpa--xml-to-tree (file-name)
   "XML-parse FILE-NAME and return top node tree as xml tree.
@@ -405,6 +405,14 @@ Optionally, save to file `fpa--output-file'."
                     (copy-file (fpa--output-file) backup-name)))
               (write-region nil nil (fpa--output-file))))))))
 
+(defun fpa--count-valid-files (file-name-or-names)
+  "Count number of valid files in FILE-NAME-OR-NAMES."
+  (let ((file-names-list (if (listp file-name-or-names)
+                            file-name-or-names (list file-name-or-names))))
+    (message (format "Valid files: %s"
+                     (if file-names-list
+                         (length (fpa--valid-files file-names-list)) 0)))))
+
 (defun fpa-file-to-buffer (file-name-or-names &optional save-to-file)
   "Convert FILE-NAME-OR-NAMES to buffer.
 
@@ -435,9 +443,11 @@ Example: `(fpa-file-to-buffer
      -------------------
      _f_: convert file at point from dired
      _a_: convert all files in current directory in dired
+     _c_: count valid files among the dired marked
 "
   ("f" (fpa-file-to-buffer (dired-get-marked-files)))
   ("a" (progn (dired-mark-subdir-files)
               (fpa-file-to-buffer (dired-get-marked-files))))
   ("b" hydra-shortcuts/body "back")
+  ("c" (fpa--count-valid-files (dired-get-marked-files)))
   ("q" nil "quit"))

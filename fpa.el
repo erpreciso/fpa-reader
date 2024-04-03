@@ -441,7 +441,7 @@ Example: `(fpa-file-to-buffer
   "
      fpa-reader commands
      -------------------
-     _f_: convert file at point from dired
+     _f_: convert file at point, or marked, from dired
      _a_: convert all files in current directory in dired
      _c_: count valid files among the dired marked
 "

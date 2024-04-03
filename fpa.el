@@ -424,3 +424,20 @@ Example: `(fpa-file-to-buffer
                                 do (message (format "Working on %s" file))
                                 append (fpa--file-to-line-strings file))))
     (fpa--strings-to-buffer header line-strings save-to-file)))
+
+;;;; hydra
+
+(require 'hydra)
+
+(defhydra hydra-fpa (:color blue :hint nil)
+  "
+     fpa-reader commands
+     -------------------
+     _f_: convert file at point from dired
+     _a_: convert all files in current directory in dired
+"
+  ("f" (fpa-file-to-buffer (dired-get-marked-files)))
+  ("a" (progn (dired-mark-subdir-files)
+              (fpa-file-to-buffer (dired-get-marked-files))))
+  ("b" hydra-shortcuts/body "back")
+  ("q" nil "quit"))

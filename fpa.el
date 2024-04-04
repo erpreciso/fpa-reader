@@ -145,11 +145,12 @@ more cases as soon as they manifest."
 (defun fpa--schema-key-get (what key)
   "Return WHAT from the KEY schema key.
 
-WHAT can be a symbol: `import-flag', `id', `path', or `label'.
+WHAT can be a symbol: `import-flag', `summary-flag', `id', `path', or `label'.
 If `label' is not present, the last value of path is converted to
 string and returned as label."
   (pcase what
     ('import-flag (nth 1 key))
+    ('summary-flag (nth 4 key))
     ('id (nth 0 key))
     ('path (nth 2 key))
     ;; label: either is present, or last value of path
@@ -169,25 +170,29 @@ Path: (root child1 child2 .. childN leaf)"
                         collect
                         (fpa--tree-get-value-from-path child path)))))))
 
-(defun fpa--tree-get-value-from-key (tree key)
+(defun fpa--tree-get-value-from-key (tree key &optional summary-flag)
   "Search KEY in TREE and return enriched value.
 
-Only if flagged with non-nil `import' (see schema file
-specs).  Return list (label id (value-or-values))."
-  (when (fpa--schema-key-get 'import-flag key)
+Only if flagged with non-nil `import' or, if SUMMARY-FLAG, with
+non-nil `summary-flag' (see schema file specs).  Return
+list (label id (value-or-values))."
+  (when (or (and (not summary-flag) (fpa--schema-key-get 'import-flag key))
+            (and summary-flag (fpa--schema-key-get 'summary-flag key)))
     (let* ((path (fpa--schema-key-get 'path key))
            (value (fpa--tree-get-value-from-path tree path))
            (label (fpa--schema-key-get 'label key))
            (id (fpa--schema-key-get 'id key)))
       (list label id value))))
 
-(defun fpa--tree-get-all-values (tree)
+(defun fpa--tree-get-all-values (tree &optional summary-flag)
   "Return all values from TREE using `fpa--schema-file-name'.
 
 Result is an assoc list (`fpa-list' as input in following
- functions) using `label' (see schema specs) as key."
+ functions) using `label' (see schema specs) as key.  If
+ `summary-flag' is not-nil, limit to summary-flagged fields in
+ the schema."
   (let* ((keys (fpa--schema))
-         (f (lambda (k) (fpa--tree-get-value-from-key tree k)))
+         (f (lambda (k) (fpa--tree-get-value-from-key tree k summary-flag)))
          (raw-values (seq-map f keys))
          ;; remove all nils
          (cleaned-values (seq-filter #'identity raw-values)))
@@ -240,8 +245,9 @@ of lines.
 Since an invoice can contains multiple lines, this functions
 return a list of `fpa-list' with all the header fields for each
 line, as example invoice recipient, invoice number, etc."
-  (let ((n (fpa--count-multi 'lines fpa-list)))
-    (if (= n 1) (list fpa-list) ; return unchanged
+  (let* ((n0 (fpa--count-multi 'lines fpa-list))
+         ;; if zero lines (summary case), still work on the unique line
+         (n (if (zerop n0) 1 n0)))
       (cl-loop for line-id below n
                collect
                (cl-loop for element in fpa-list
@@ -257,7 +263,7 @@ line, as example invoice recipient, invoice number, etc."
                               (riepilogo-flag (fpa--patch-riepilogo element))
                               (t (list (car element)
                                        (cadr element)
-                                       (nth line-id (caddr element))))))))))
+                                       (nth line-id (caddr element)))))))))
 
 (defun fpa--patch-riepilogo (element)
   "Patch when there are multiple VAT rates, therefore the summary
@@ -306,7 +312,7 @@ line, as example invoice recipient, invoice number, etc."
            for sanitized-value = (fpa--sanitize-string raw-value)
            collect (list header sanitized-value)))
 
-(defun fpa--file-to-invoice (file-name)
+(defun fpa--file-to-invoice (file-name &optional summary-flag)
   "Parse FILE-NAME and return list of lines by invoices.
 
 Return a list: (<invoices>
@@ -314,9 +320,12 @@ Return a list: (<invoices>
                  (<line>
                   (inv1-line1-header inv1-line1-value)
                   (inv1-line2-header inv1-line2-value)))
-               (((inv2-line1-header ...))))"
+               (((inv2-line1-header ...))))
+
+If `summary-flag' is not-nil, limit the fields to the summary ones."
   (let* ((tree (fpa--xml-to-tree file-name))
-         (invoices (fpa--invoices (fpa--tree-get-all-values tree))))
+         (invoices (fpa--invoices
+                    (fpa--tree-get-all-values tree summary-flag))))
     (cl-loop for invoice in invoices
              for lines = (fpa--reshape-for-multi-lines invoice)
              collect (cl-loop for line in lines
@@ -373,21 +382,30 @@ for the lines-specific file info."
    ;; return file info
    (file-name (list (file-name-base file-name)))))
 
-(defun fpa--file-to-line-strings (file-name)
-  "Return list of strings for each line and invoice."
-  (cl-loop for invoice in (fpa--file-to-invoice file-name)
+(defun fpa--file-to-line-strings (file-name &optional summary-flag)
+  "Return list of strings for each line and invoice.
+
+If `summary-flag' is not-nil, return only summary fields."
+  (cl-loop for invoice in (fpa--file-to-invoice file-name summary-flag)
            for file-info = (fpa--file-info file-name)
            append (cl-loop for line in invoice
                            for line-ext = (fpa--line-to-string line file-info)
                            append (list line-ext))))
 
-(defun fpa--header-string (&optional file-info)
+(defun fpa--header-string (&optional file-info summary-flag)
   "Return string representing header, from `fpa--schema-file-name'.
 
-If FILE-INFO is not-nil, append file info header columns."
+If FILE-INFO is not-nil, append file info header columns.  If
+SUMMARY-FLAG is not-nil, return only the summary-flagged fields."
   (let* ((schema (fpa--schema))
          (keys (cl-loop for key in schema
-                        if (fpa--schema-key-get 'import-flag key)
+                        if (or
+                            ;; regular run
+                            (and (not summary-flag)
+                                 (fpa--schema-key-get 'import-flag key))
+                            ;; summary
+                            (and summary-flag
+                                 (fpa--schema-key-get 'summary-flag key)))
                         collect (fpa--schema-key-get 'label key)))
          (header (cl-loop for k in keys
                           for k-s = k then (format "%s%s" fpa--separator k)
@@ -438,29 +456,32 @@ Optionally, save to file `fpa--output-file'."
 (defun fpa--count-valid-files (file-name-or-names)
   "Count number of valid files in FILE-NAME-OR-NAMES."
   (let ((file-names-list (if (listp file-name-or-names)
-                            file-name-or-names (list file-name-or-names))))
+                             file-name-or-names (list file-name-or-names))))
     (message (format "Valid files: %s"
                      (if file-names-list
                          (length (fpa--valid-files file-names-list)) 0)))))
 
-(defun fpa-file-to-buffer (file-name-or-names &optional save-to-file)
+(defun fpa-file-to-buffer (file-name-or-names
+                           &optional save-to-file summary-flag)
   "Convert FILE-NAME-OR-NAMES to buffer.
 
 Include all invoices in each file.  FILE-NAME-OR-NAMES is a file
 path, or a list of file paths.
 Example: `(fpa-file-to-buffer
            (directory-files \"~/org/projects/MAMA/inbox\" t
-                         directory-files-no-dot-files-regexp) t)'"
+                         directory-files-no-dot-files-regexp) t)'.
+If SUMMARY-FLAG is not-nil, returns a summary only."
   ;; convert single name to list
   (let* ((file-names-raw (if (listp file-name-or-names)
                              file-name-or-names (list file-name-or-names)))
          ;; filter for valid file names only
          (file-names (or (fpa--valid-files file-names-raw)
                          (error "Cannot continue. No files.")))
-         (header (fpa--header-string t))
+         (header (fpa--header-string t summary-flag))
          (line-strings (cl-loop for file in file-names
                                 do (message (format "Working on %s" file))
-                                append (fpa--file-to-line-strings file))))
+                                append
+                                (fpa--file-to-line-strings file summary-flag))))
     (fpa--strings-to-buffer header line-strings save-to-file)))
 
 ;;;; utils
@@ -497,7 +518,7 @@ Example: `(fpa-file-to-buffer
                          (and reduction (eq char (seq-elt checked-string i))))
            if (seq-reduce check strings t) collect (seq-elt a i) into result
            else return (concat result "*")))
-  
+
 (defun fpa--dedup-headers (headers)
   "Dedup HEADERS (file-name header) returning list with wildcards."
   (let* ((aheaders nil)
@@ -523,7 +544,7 @@ Example: `(fpa-file-to-buffer
          (file-names (or (fpa--valid-files file-names-list)
                          (error "Cannot continue. No files.")))
          (headers (cl-loop for file-name in file-names
-                      collect (fpa--get-header file-name)))
+                           collect (fpa--get-header file-name)))
          (dedup-headers (fpa--dedup-headers headers))
          ;; (dedup-headers headers)
          (result (cl-loop for header in dedup-headers
@@ -551,7 +572,8 @@ Example: `(fpa-file-to-buffer
      _f_: convert file at point, or marked, from dired
      _a_: convert all files in current directory in dired
      _c_: count valid files among the dired marked
-     _h_: get headers of file at point, or market, from dired
+     _h_: get headers of file at point, or marked, from dired
+     _s_: create summary of file at point, or marked
 "
   ("f" (fpa-file-to-buffer (dired-get-marked-files)))
   ("a" (progn (dired-mark-subdir-files)
@@ -559,4 +581,5 @@ Example: `(fpa-file-to-buffer
   ("b" hydra-shortcuts/body "back")
   ("c" (fpa--count-valid-files (dired-get-marked-files)))
   ("h" (fpa-headers (dired-get-marked-files)))
+  ("s" (fpa-file-to-buffer (dired-get-marked-files) nil t))
   ("q" nil "quit"))

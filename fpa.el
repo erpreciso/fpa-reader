@@ -225,7 +225,7 @@ WHAT is either `invoices' or `lines'."
                collect
                (cl-loop for element in fpa-list
                         for id = (cadr element)
-                                        ; split here all elements starting with 2 (fatturabody)
+                        ;; split here all elements starting with 2 (fatturabody)
                         for element-prefix = (substring (symbol-name id) 0 1)
                         for header-flag = (string= element-prefix "1")
                         collect (if header-flag element
@@ -248,11 +248,41 @@ line, as example invoice recipient, invoice number, etc."
                         for id = (cadr element)
                         ;; split elements starting with 2-2-1 (dettagliolinee)
                         for element-prefix = (substring (symbol-name id) 0 5)
-                        for header-flag = (not (string= element-prefix "2-2-1"))
-                        collect (if header-flag element
-                                  (list (car element)
-                                        (cadr element)
-                                        (nth line-id (caddr element)))))))))
+                        for riepilogo-flag = (string= element-prefix "2-2-2")
+                        for header-flag = (and
+                                           (not (string= element-prefix "2-2-1"))
+                                           (not riepilogo-flag))
+                        collect
+                        (cond (header-flag element)
+                              (riepilogo-flag (fpa--patch-riepilogo element))
+                              (t (list (car element)
+                                       (cadr element)
+                                       (nth line-id (caddr element))))))))))
+
+(defun fpa--patch-riepilogo (element)
+  "Patch when there are multiple VAT rates, therefore the summary
+  amount is split in multiple lines.
+
+  As example, ('Riepilogo Imponibile' 2-2-2-5
+               ((ImponibileImporto nil '5.93')
+                (ImponibileImporto nil '4.75')
+                (ImponibileImporto nil '0.00'))) patched will return
+   ('Riepilogo Imponibile' 2-2-2-5 (ImponibileImporto nil 10.68))"
+  (let* ((to-aggregate (caddr element)))
+    ;; return unchanged if there is only one line
+    (if (symbolp (car to-aggregate)) element
+      (let ((aggregated-value
+             ;; otherwise iterate and sum
+             (cl-loop for el in to-aggregate
+                      for h1 = (car el)
+                      for h2 = (cadr el)
+                      for val = (string-to-number (caddr el))
+                      sum val into return-value
+                      finally return
+                      (list h1 h2 (number-to-string return-value)))))
+        (list (car element)
+              (cadr element)
+              aggregated-value)))))
 
 (defun fpa--sanity-check-1 (fpa-list)
   "Validate each element has length == 1."
@@ -320,8 +350,8 @@ Use separator `fpa--separator'.  Optional, append FILE-INFO (list
 of file info) at the end of the line."
   ;; check if fpa-separator same as csv-separator, and warn user
   (if (or (member fpa--separator csv-separators)
-           (yes-or-no-p (concat "fpa--separator not in csv-separators.  "
-                                "csv-mode might not work.  Continue?")))
+          (yes-or-no-p (concat "fpa--separator not in csv-separators.  "
+                               "csv-mode might not work.  Continue?")))
       (let ((str (cl-loop for el in line
                           for el-v = (cadr el)
                           for el-s = el-v then (format "%s%s" fpa--separator el-v)
@@ -341,7 +371,7 @@ for the lines-specific file info."
    ;; return header
    ((not file-name) (list "File name"))
    ;; return file info
-  (file-name (list (file-name-base file-name)))))
+   (file-name (list (file-name-base file-name)))))
 
 (defun fpa--file-to-line-strings (file-name)
   "Return list of strings for each line and invoice."

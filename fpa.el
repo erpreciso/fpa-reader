@@ -438,18 +438,23 @@ Example: `(fpa-file-to-buffer
 ;;;;; get headers
 
 (defun fpa--get-header (file-name)
-  "Parse FILE-NAME and return list (file-name \"header: value\") for `header' fields."
+  "Parse FILE-NAME and return list (file-name \"header: value\")
+ for `header' fields."
   (let* ((tree (fpa--xml-to-tree file-name))
          (fpa-list (fpa--tree-get-all-values tree))
          (line (fpa--prepare-line
                 (cl-loop for element in fpa-list
                          for id = (cadr element)
-                         for element-prefix = (substring (symbol-name id) 0 1)
-                         for header-flag = (string= element-prefix "1")
+                         ;; consider only elements starting with 1-2,
+                         ;; "cedente" fields
+                         for element-prefix = (substring (symbol-name id) 0 3)
+                         for header-flag = (string= element-prefix "1-2")
                          if header-flag collect element)))
          (formatted (cl-loop for element in line
                              for format-string = "    %s: %s" then "\n    %s: %s"
-                             concat (format format-string (car element) (cadr element)))))
+                             concat (format format-string
+                                            (car element)
+                                            (cadr element)))))
     (list (file-name-base file-name) formatted)))
 
 (defun fpa--intersect-strings (strings)

@@ -56,7 +56,7 @@ Schema is formatted as a list with this structure:
     (goto-char (point-min))
     (read (current-buffer))))
 
-(defvar fpa--root-header-prefixes '(ns0 n0 ns1 ns2 ns3 b p nil)
+(defvar fpa--root-header-prefixes '(ns0 n0 ns1 ns2 ns3 b p P nil)
   "List of possible prefix headers for the top level.")
 
 (defun fpa--root-keys ()

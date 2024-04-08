@@ -255,15 +255,25 @@ line, as example invoice recipient, invoice number, etc."
                         ;; split elements starting with 2-2-1 (dettagliolinee)
                         for element-prefix = (substring (symbol-name id) 0 5)
                         for riepilogo-flag = (string= element-prefix "2-2-2")
+                        for single-line-case-flag = (eq 1 n0)
                         for header-flag = (and
                                            (not (string= element-prefix "2-2-1"))
                                            (not riepilogo-flag))
                         collect
-                        (cond (header-flag element)
-                              (riepilogo-flag (fpa--patch-riepilogo element))
-                              (t (list (car element)
-                                       (cadr element)
-                                       (nth line-id (caddr element)))))))))
+                        (cond
+                         ;; if it's header, return element as is
+                         (header-flag element)
+                         ;; if there is only one line, return element
+                         ;; as is since it's not a list of one, but
+                         ;; the list itself
+                         (single-line-case-flag element)
+                         ;; if it's a 'riepilogo' field, patch it
+                         (riepilogo-flag (fpa--patch-riepilogo element))
+                         ;; otherwise, get the corresponding linea
+                         ;; element from the list of lists
+                         (t (list (car element)
+                                  (cadr element)
+                                  (nth line-id (caddr element)))))))))
 
 (defun fpa--patch-riepilogo (element)
   "Patch when there are multiple VAT rates, therefore the summary

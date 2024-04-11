@@ -145,14 +145,17 @@ more cases as soon as they manifest."
 (defun fpa--schema-key-get (what key)
   "Return WHAT from the KEY schema key.
 
-WHAT can be a symbol: `import-flag', `summary-flag', `id', `path', or `label'.
-If `label' is not present, the last value of path is converted to
-string and returned as label."
+WHAT can be a symbol: `import-flag', `summary-flag', `id',
+`path', `unique-key' or `label'.  If `label' is not present, the
+last value of path is converted to string and returned as label.
+`unique-key' is a concat of the path and is used as unique
+identifier for the database."
   (pcase what
     ('import-flag (nth 1 key))
     ('summary-flag (nth 4 key))
     ('id (nth 0 key))
     ('path (nth 2 key))
+    ('unique-key (apply #'concat (seq-map #'symbol-name (fpa--schema-key-get 'path key))))
     ;; label: either is present, or last value of path
     ('label (or (nth 3 key)
                 (symbol-name
@@ -170,29 +173,34 @@ Path: (root child1 child2 .. childN leaf)"
                         collect
                         (fpa--tree-get-value-from-path child path)))))))
 
-(defun fpa--tree-get-value-from-key (tree key &optional summary-flag)
+(defun fpa--tree-get-value-from-key (tree key &optional summary-flag db-flag)
   "Search KEY in TREE and return enriched value.
 
 Only if flagged with non-nil `import' or, if SUMMARY-FLAG, with
-non-nil `summary-flag' (see schema file specs).  Return
-list (label id (value-or-values))."
+non-nil SUMMARY-FLAG (see schema file specs).  Return list (label
+id (value-or-values)).  If DB-FLAG is not nil, produce a
+db-friendly output with a unique key as header, instead of a
+label."
   (when (or (and (not summary-flag) (fpa--schema-key-get 'import-flag key))
             (and summary-flag (fpa--schema-key-get 'summary-flag key)))
     (let* ((path (fpa--schema-key-get 'path key))
            (value (fpa--tree-get-value-from-path tree path))
            (label (fpa--schema-key-get 'label key))
+           (key (fpa--schema-key-get 'unique-key key))
            (id (fpa--schema-key-get 'id key)))
-      (list label id value))))
+      (if db-flag (list key id value)
+        (list label id value)))))
 
-(defun fpa--convert-tree-to-fpalist (tree &optional summary-flag)
+(defun fpa--convert-tree-to-fpalist (tree &optional summary-flag db-flag)
   "Return all values from TREE using `fpa--schema-file-name'.
 
 Result is an assoc list (`fpa-list' as input in following
  functions) using `label' (see schema specs) as key.  If
- `summary-flag' is not-nil, limit to summary-flagged fields in
- the schema."
+ SUMMARY-FLAG is not-nil, limit to summary-flagged fields in the
+ schema.  If DB-FLAG is not nil, produce a db-friendly output
+ with a unique key as header, instead of a label."
   (let* ((keys (fpa--get-schema))
-         (f (lambda (k) (fpa--tree-get-value-from-key tree k summary-flag)))
+         (f (lambda (k) (fpa--tree-get-value-from-key tree k summary-flag db-flag)))
          (raw-values (seq-map f keys))
          ;; remove all nils
          (cleaned-values (seq-filter #'identity raw-values)))
@@ -322,7 +330,7 @@ line, as example invoice recipient, invoice number, etc."
            for sanitized-value = (fpa--sanitize-string raw-value)
            collect (list header sanitized-value)))
 
-(defun fpa--extract-invoices-from-file (file-name &optional summary-flag)
+(defun fpa--extract-invoices-from-file (file-name &optional summary-flag db-flag)
   "Parse FILE-NAME and return list of lines by invoices.
 
 Return a list: (<invoices>
@@ -332,14 +340,15 @@ Return a list: (<invoices>
                   (inv1-line2-header inv1-line2-value)))
                (((inv2-line1-header ...))))
 
-If `summary-flag' is not-nil, limit the fields to the summary ones."
+If SUMMARY-FLAG is not-nil, limit the fields to the summary
+ones.  If DB-FLAG is not nil, produce a db-friendly output with a
+unique key as header, instead of a label."
   (let* ((tree (fpa--convert-xml-to-tree file-name))
          (invoices (fpa--split-invoices-in-fpalist
-                    (fpa--convert-tree-to-fpalist tree summary-flag))))
+                    (fpa--convert-tree-to-fpalist tree summary-flag db-flag))))
     (cl-loop for invoice in invoices
              for lines = (fpa--split-fpalist-in-lines invoice)
              collect (cl-loop for line in lines
-                              ;; do (fpa--sanity-check-1 line)  ;; TODO move this check after the line is prepared. actually, put in 'prepare line'
                               collect (fpa--convert-line-to-header-value line)))))
 
 (defconst fpa--separator ";" "Separator for export to string.")
@@ -395,7 +404,7 @@ for the lines-specific file info."
 (defun fpa--file-to-line-strings (file-name &optional summary-flag)
   "Return list of strings for each line and invoice.
 
-If `summary-flag' is not-nil, return only summary fields."
+If SUMMARY-FLAG is not-nil, return only summary fields."
   (cl-loop for invoice in (fpa--extract-invoices-from-file file-name summary-flag)
            for file-info = (fpa--file-info file-name)
            append (cl-loop for line in invoice

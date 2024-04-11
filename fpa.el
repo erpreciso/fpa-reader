@@ -31,9 +31,7 @@
 
 ;;; Code:
 
-;;;; convert xml
-
-(require 'xml)
+;;;; manage schema file
 
 (defvar fpa--schema-file-name "~/org/projects/fpa-reader/fpa-schema.el"
   "File containing the schema to parse `FatturaPA' xml.
@@ -55,6 +53,31 @@ Schema is formatted as a list with this structure:
     (insert-file-contents fpa--schema-file-name)
     (goto-char (point-min))
     (read (current-buffer))))
+
+(defun fpa--schema-key-get (what key)
+  "Return WHAT from the KEY schema key.
+
+WHAT can be a symbol: `import-flag', `summary-flag', `id',
+`path', `unique-key' or `label'.  If `label' is not present, the
+last value of path is converted to string and returned as label.
+`unique-key' is a concat of the path and is used as unique
+identifier for the database."
+  (pcase what
+    ('id (nth 0 key))
+    ('path (nth 1 key))
+    ('import-flag (nth 2 key))
+    ('label (or (nth 3 key)
+                (symbol-name
+                 (seq-first (reverse (fpa--schema-key-get 'path key))))))
+    ('summary-flag (nth 4 key))
+    ('summary-label (nth 5 key))
+    ('db-flag (nth 6 key))
+    ('db-label (nth 7 key))
+    ('unique-key (apply #'concat (seq-map #'symbol-name (fpa--schema-key-get 'path key))))))
+
+;;;; clean and parse raw xml file; return xmltree
+
+(require 'xml)
 
 (defvar fpa--root-header-prefixes '(ns0 n0 ns1 ns2 ns3 b p P nil)
   "List of possible prefix headers for the top level.")
@@ -142,24 +165,7 @@ more cases as soon as they manifest."
              for tree = (assq key parsed-xml-region)
              if tree return tree)))
 
-(defun fpa--schema-key-get (what key)
-  "Return WHAT from the KEY schema key.
-
-WHAT can be a symbol: `import-flag', `summary-flag', `id',
-`path', `unique-key' or `label'.  If `label' is not present, the
-last value of path is converted to string and returned as label.
-`unique-key' is a concat of the path and is used as unique
-identifier for the database."
-  (pcase what
-    ('import-flag (nth 1 key))
-    ('summary-flag (nth 4 key))
-    ('id (nth 0 key))
-    ('path (nth 2 key))
-    ('unique-key (apply #'concat (seq-map #'symbol-name (fpa--schema-key-get 'path key))))
-    ;; label: either is present, or last value of path
-    ('label (or (nth 3 key)
-                (symbol-name
-                 (seq-first (reverse (fpa--schema-key-get 'path key))))))))
+;;;; parse xml using schema, return fpa-list
 
 (defun fpa--tree-get-value-from-path (tree path)
   "Return raw xml from TREE, parsing PATH w/ `xml-get-children'.

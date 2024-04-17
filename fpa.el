@@ -577,13 +577,11 @@ FLAG determines output type."
   (let* ((tree (fpa--convert-xml-to-tree file-name))
          (fpa-list (fpa--convert-tree-to-fpalist tree 'detail))
          (line (fpa--convert-line-to-header-value
-                (cl-loop for element in fpa-list
-                         for id = (cadr element)
+                (list 'detail (cl-loop for element in (cadr fpa-list)
+                         for id = (symbol-name (cadr element))
                          ;; consider only elements starting with 1-2,
-                         ;; "cedente" fields
-                         for element-prefix = (substring (symbol-name id) 0 3)
-                         for header-flag = (string= element-prefix "1-2")
-                         if header-flag collect element)))
+                         ;; "cedente" fields.
+                         if (string-prefix-p "1-2" id) collect element))))
          (formatted (cl-loop for element in line
                              for format-string = "    %s: %s" then "\n    %s: %s"
                              concat (format format-string

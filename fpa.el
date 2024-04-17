@@ -662,7 +662,7 @@ FLAG determines output type."
   ("b" hydra-shortcuts/body "back")
   ("c" (fpa--count-valid-files (dired-get-marked-files)))
   ("h" (fpa-headers (dired-get-marked-files)))
-  ("s" (fpa-file-to-buffer (dired-get-marked-files) 'summary nil))
+  ("s" (fpa-file-to-buffer (dired-get-marked-files) 'database nil))
   ("q" nil "quit"))
 
 ;;;; fpa-manager

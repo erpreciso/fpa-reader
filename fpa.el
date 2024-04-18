@@ -340,21 +340,24 @@ downstream."
           (invoice-summaries invoice) summaries)
     invoice))
 
-(defun fpa--file-to-invoices-db (file-name &optional schema-file)
-  "Populate 'fpa--invoices-db' with invoices/lines from FILE-NAME.
+(defun fpa--files-to-invoices-db (file-name-or-names &optional schema-file)
+  "Populate 'fpa--invoices-db' with invoices/lines from FILE-NAME-OR-NAMES.
 
 FILE-NAME is parsed using the 'database' flag."
-  (let* ((tree (fpa--convert-xml-to-tree file-name))
-         (raw-fpa-list (fpa--convert-tree-to-fpalist tree 'database))
-         (invoices (fpa--split-invoices-in-fpalist raw-fpa-list)))
-    ;; iterate through the invoices
-    (cl-loop for invoice in invoices
-             ;; listify line and summary fields for easier parsing
-             for invoice-alist = (fpa--invoice-listify-alist (cadr invoice))
-             ;; convert to struct and save into database
-             do (fpa--invoice-alist-to-struct invoice-alist))
-    ;; return the invoice database
-    fpa--invoices-db))
+  (let ((files (fpa--get-valid-files file-name-or-names)))
+    (cl-loop
+     for file-name in files do
+     (let* ((tree (fpa--convert-xml-to-tree file-name))
+            (raw-fpa-list (fpa--convert-tree-to-fpalist tree 'database))
+            (invoices (fpa--split-invoices-in-fpalist raw-fpa-list)))
+       ;; iterate through the invoices
+       (cl-loop for invoice in invoices
+                ;; listify line and summary fields for easier parsing
+                for invoice-alist = (fpa--invoice-listify-alist (cadr invoice))
+                ;; convert to struct and save into database
+                do (fpa--invoice-alist-to-struct invoice-alist)))))
+  ;; return the invoice database
+  fpa--invoices-db)
                     
 ;;;; dedup invoices; return list of single-invoice fpa-list
 

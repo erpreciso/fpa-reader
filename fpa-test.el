@@ -15,6 +15,9 @@
 (defconst fpa-test--multi-invoice-multi-line-file (caddr fpa-test-files)
   "Test file with more than one invoice and more than one line")
 
+(defconst fpa-test--multi-invoice-multi-line-multi-summary-file (cadddr fpa-test-files)
+  "Test file with more than one invoice and more than one line")
+
 ;;; test-fpa--schema-get-key
 
 (ert-deftest fpa--schema-get-key ()

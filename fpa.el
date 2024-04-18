@@ -226,7 +226,9 @@ Result is a list (`fpa-list' as input in following functions)
     (list flag cleaned-values)))
 
 
-;;;; invoice struct
+;;;; invoice database
+
+;;;;; invoice/line/summary struct
 
 (cl-defstruct invoice-line
   "Line of an invoice.  Represent a single transaction within an
@@ -239,50 +241,114 @@ invoice."
   amount-tax
   amount)
 
-(cl-defstruct invoice "Struct for an invoice."
-              id
-              date
-              (payment-due-date nil)
-              (payment-amount nil)
-              seller-tax-id
-              (seller-name nil)
-              (buyer-tax-id nil)
-              (buyer-name nil)
-              (lines nil)
-              (lines-amount-taxable nil)
-              (lines-amount-tax nil)
-              )
+(cl-defstruct invoice-summary
+  "Summary of an invoice. It stores different taxable amounts and
+ related tax rate.  The sum represent the total invoice amount."
+  (summary-amount-taxable nil)
+  (summary-amount-tax nil)
+  (reference nil))
+  
+(cl-defstruct invoice
+  "Struct for an invoice."
+  id
+  date
+  (payment-due-date nil)
+  (payment-amount nil)
+  seller-tax-id
+  (seller-name nil)
+  (buyer-tax-id nil)
+  (buyer-name nil)
+  (lines nil)
+  (summaries nil))
+
+;;;;; invoice database
 
 (defvar fpa--invoices-db nil "Invoices database (a list).")
+
+(defun fpa--invoices-db-reset ()
+  "Reset the invoices database."
+  (setq fpa--invoices-db nil))
+
+;;;;; create invoice and store in database
 
 (defun fpa--invoices-get-or-create (id date seller-tax-id)
   "Get invoice having ID and DATE from 'fpa--invoices'.  If the
 invoice does not exist, create it."
   (or
-   (seq-filter (lambda (inv)
+   ;; invoice already exists
+   (car (seq-filter (lambda (inv)
                  (and (string= (invoice-id inv) id)
                       (string= (invoice-seller-tax-id inv) seller-tax-id)
-                      (string= (invoice-date inv) date))) fpa--invoices-db)
+                      (string= (invoice-date inv) date))) fpa--invoices-db))
+   ;; create new invoice
    (let ((new-invoice
           (make-invoice :id id :date date :seller-tax-id seller-tax-id)))
      (push new-invoice fpa--invoices-db)
      new-invoice)))
+
+(defun fpa--invoice-listify-alist (invoice-alist)
+  "For every element, in case of single line, convert the strings of
+each line and summary to a list of one, for convernient parsing
+downstream."
+  (cl-loop for element in invoice-alist
+           for id = (symbol-name (cadr element))
+           for line-or-summary = (or (string-prefix-p "2-2-1" id)
+                                     (string-prefix-p "2-2-2" id))
+           for value = (caddr element)
+           collect (list (car element)
+                         (cadr element)
+                         (if (and line-or-summary (stringp value))
+                             (list value) value))))
+
+(defun fpa--invoice-alist-to-struct (invoice-alist)
+  "Convert INVOICE-ALIST to a invoice struct."
+  (defun getvalue (key) (caddr (assoc key invoice-alist)))
+  (let* ((invoice (fpa--invoices-get-or-create
+                   (getvalue "id")
+                   (getvalue "date")
+                   (getvalue "seller-tax-id")))
+         (lines (cl-loop for line-id in (getvalue "line-id")
+                         for line-desc in (getvalue "line-description")
+                         for unit-tax-rate in (getvalue "unit-tax-rate")
+                         for unit-taxable-price in (getvalue "unit-taxable-price")
+                         collect (make-invoice-line
+                                  :id line-id
+                                  :description line-desc
+                                  :unit-taxable-price unit-taxable-price
+                                  :unit-tax-rate unit-tax-rate)))
+         (summaries-n (length (getvalue "summary-amount-taxable")))
+         (summaries (cl-loop for summary-amount-taxable in
+                             (getvalue "summary-amount-taxable")
+                             for summary-amount-tax in
+                             (getvalue "summary-amount-tax")
+                             for reference in (or (getvalue "reference")
+                                                  (make-list summaries-n nil))
+                             collect (make-invoice-summary
+                                      :summary-amount-taxable summary-amount-taxable
+                                      :summary-amount-tax summary-amount-tax
+                                      :reference reference))))
+    (setf (invoice-lines invoice) lines
+          (invoice-payment-due-date invoice) (getvalue "payment-due-date")
+          (invoice-payment-amount invoice) (getvalue "payment-amount")
+          (invoice-seller-name invoice) (getvalue "seller-name")
+          (invoice-buyer-tax-id invoice) (getvalue "buyer-tax-id")
+          (invoice-buyer-name invoice) (getvalue "buyer-name")
+          (invoice-summaries invoice) summaries)
+    invoice))
 
 (defun fpa--file-to-invoices-db (file-name &optional schema-file)
   "Populate 'fpa--invoices-db' with invoices/lines from FILE-NAME.
 
 FILE-NAME is parsed using the 'database' flag."
   (let* ((flag 'database)
-         (file-name fpa-test--multi-invoice-multi-line-file)
-         (hvs (fpa--file-to-invoices-lines file-name flag schema-file)))
-    hvs))
-
-;; (fpa--file-to-invoices-db nil)
-
-;;   ;; iterate invoices
-;;   (cl-loop for invoice in header-value-list
-;;            ;; iterate lines
-;;            (cl-loop for line in invoice
+         (file-name fpa-test--multi-invoice-multi-line-multi-summary-file)
+         (tree (fpa--convert-xml-to-tree file-name))
+         (raw-fpa-list (fpa--convert-tree-to-fpalist tree 'database))
+         (invoices (fpa--split-invoices-in-fpalist raw-fpa-list)))
+    (cl-loop for invoice in invoices
+             for invoice-alist = (fpa--invoice-listify-alist (cadr invoice))
+             do (fpa--invoice-alist-to-struct invoice-alist))
+    fpa--invoices-db))
                     
 ;;;; dedup invoices; return list of single-invoice fpa-list
 
@@ -295,6 +361,10 @@ FILE-NAME is parsed using the 'database' flag."
   "Immutable identifier for the line id, used to separate
  different lines in the same file.")
 
+(defconst fpa--summaries-id-identifier '2-2-2
+  "Immutable identifier for the line id, used to separate
+ different lines in the same file.")
+
 (defun fpa--count-multi (what fpa-list &optional schema-file)
   "Return number of WHAT in FPA-LIST.
 
@@ -302,7 +372,8 @@ WHAT is either `invoices' or `lines'. If SCHEMA-FILE is not-nil,
 use that for schema."
   (let ((id (pcase what
               ('invoices fpa--invoice-id-identifier)
-              ('lines fpa--lines-id-identifier))))
+              ('lines fpa--lines-id-identifier)
+              ('summaries fpa--summaries-id-identifier))))
     (let* ((flag (car fpa-list))
            (fpa-list-keys (cadr fpa-list))
            (id--schema-key (assoc id (fpa--get-schema schema-file)))

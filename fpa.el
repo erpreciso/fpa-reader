@@ -119,14 +119,16 @@ There are invalid characters in some examples of fatture,
 especially the ones processed with digital signature, therefore
 they are replaced with '' during parsing.")
 
-(defun fpa--get-valid-files (file-names)
-  "Return only valid fpa files from FILE-NAMES."
-  (let ((valids (seq-filter
-                 (lambda (f)
-                   (and (not (string-match "metaDato" f))
-                        ;; (not (string-match "p7m" f))
-                        (string-match "\\.xml" f)))
-                 file-names)))
+(defun fpa--get-valid-files (file-name-or-names)
+  "Return only valid fpa files from FILE-NAME-OR-NAMES."
+  (let* ((file-names (if (listp file-name-or-names)
+                         file-name-or-names (list file-name-or-names)))
+         (valids (seq-filter
+                  (lambda (f)
+                    (and (not (string-match "metaDato" f))
+                         ;; (not (string-match "p7m" f))
+                         (string-match "\\.xml" f)))
+                  file-names)))
     (if (not valids) (message "No valid file remained")) valids))
 
 (defun fpa--convert-xml-to-tree (file-name)
@@ -626,10 +628,7 @@ Example: `(fpa-file-to-buffer
                          directory-files-no-dot-files-regexp) t)'.
 FLAG determines output type."
   ;; convert single name to list
-  (let* ((file-names-raw (if (listp file-name-or-names)
-                             file-name-or-names (list file-name-or-names)))
-         ;; filter for valid file names only
-         (file-names (or (fpa--get-valid-files file-names-raw)
+  (let* ((file-names (or (fpa--get-valid-files file-name-or-names)
                          (error "Cannot continue. No files.")))
          (header (fpa--header-string flag))
          (line-strings (cl-loop for file in file-names
@@ -691,9 +690,7 @@ FLAG determines output type."
 
 (defun fpa-headers (file-name-or-names)
   "Return headers of valid files in FILE-NAME-OR-NAMES."
-  (let* ((file-names-list (if (listp file-name-or-names)
-                              file-name-or-names (list file-name-or-names)))
-         (file-names (or (fpa--get-valid-files file-names-list)
+  (let* ((file-names (or (fpa--get-valid-files file-name-or-names)
                          (error "Cannot continue. No files.")))
          (headers (cl-loop for file-name in file-names
                            collect (fpa--get-header file-name)))

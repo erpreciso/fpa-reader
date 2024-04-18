@@ -389,3 +389,18 @@
                    "file-name;IdCodice;Nome;Data;Numero;ImportoTotaleDocumento;ImponibileImporto;Imposta;DataScadenzaPagamento"))
   (should (string= (fpa--header-string 'database)
                    "file-name;seller-tax-id;seller-name;buyer-tax-id;buyer-name;date;id;payment-amount;line-description;line-unit-taxable-price;line-unit-tax-rate;lines-amount-taxable;lines-amount-tax;payment-due-date")))
+;;; test get and count valid files
+
+(ert-deftest fpa--get-valid-files ()
+  (should (equal
+           (seq-map #'file-name-base
+                    (fpa--get-valid-files fpa-test--multi-invoice-multi-line-file))
+           '("IT01234567890_FPA03")))
+  (should (equal
+           (seq-map #'file-name-base (fpa--get-valid-files fpa-test-files))
+           '("IT01234567890_FPA01" "IT01234567890_FPA02" "IT01234567890_FPA03"
+             "IT01234567890_FPA04" "IT01234567890_FPR01" "IT01234567890_FPR02"
+             "IT01234567890_FPR03"))))
+
+(ert-deftest fpa--count-valid-files ()
+  (should (string= (fpa--count-valid-files fpa-test-files) "Valid files: 7")))

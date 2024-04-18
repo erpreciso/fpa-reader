@@ -254,6 +254,7 @@ invoice."
   "Struct for an invoice."
   id
   date
+  (source-file nil)
   (payment-due-date nil)
   (payment-amount nil)
   seller-tax-id
@@ -355,7 +356,8 @@ FILE-NAME is parsed using the 'database' flag."
                 ;; listify line and summary fields for easier parsing
                 for invoice-alist = (fpa--invoice-listify-alist (cadr invoice))
                 ;; convert to struct and save into database
-                do (fpa--invoice-alist-to-struct invoice-alist)))))
+                for invoice-struct = (fpa--invoice-alist-to-struct invoice-alist)
+                do (setf (invoice-source-file invoice-struct) file-name)))))
   ;; return the invoice database
   fpa--invoices-db)
                     

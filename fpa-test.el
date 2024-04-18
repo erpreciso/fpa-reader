@@ -389,6 +389,41 @@
                    "file-name;IdCodice;Nome;Data;Numero;ImportoTotaleDocumento;line-id;DataScadenzaPagamento"))
   (should (string= (fpa--header-string 'database)
                    "file-name;seller-tax-id;seller-name;buyer-tax-id;buyer-name;date;id;payment-amount;line-id;line-description;unit-taxable-price;unit-tax-rate;summary-amount-taxable;summary-amount-tax;reference;payment-due-date")))
+
+;;; test invoice database
+
+(ert-deftest fpa--file-to-invoices-db ()
+  (should (equal 
+           (cl-loop for file in fpa-test-files
+                    do (fpa--file-to-invoices-db file)
+                    finally return fpa--invoices-db)
+           '(#s(invoice "456"
+                        "2014-12-20"
+                        "2015-01-28"
+                        nil "01234567890"
+                        "SOCIETA' ALPHA SRL" nil "BETA GAMMA"
+                        (#s(invoice-line "1" "PRESTAZIONE DEL SEGUENTE SERVIZIO PROFESSIONALE: LA DESCRIZIONE DELLA PRESTAZIONE PUO' SUPERARE I CENTO CARATTERI CHE RAPPRESENTAVANO IL PRECEDENTE LIMITE DIMENSIONALE. TALE LIMITE NELLA NUOVA VERSIONE E' STATO PORTATO A MILLE CARATTERI" "2000.00" "22.00" nil nil nil))
+                        (#s(invoice-summary "2000.00" "440.00" nil)))
+             #s(invoice "123" "2014-12-18" "2015-01-30" nil "01234567890" "SOCIETA' ALPHA SRL" nil "BETA GAMMA"
+                        (#s(invoice-line "1" "LA DESCRIZIONE DELLA FORNITURA PUO' SUPERARE I CENTO CARATTERI CHE RAPPRESENTAVANO IL PRECEDENTE LIMITE DIMENSIONALE. TALE LIMITE NELLA NUOVA VERSIONE E' STATO PORTATO A MILLE CARATTERI" "5.00" "22.00" nil nil nil)
+                         #s(invoice-line "2" "FORNITURE VARIE PER UFFICIO" "20.00" "22.00" nil nil nil))
+                        (#s(invoice-summary "27.00" "5.95" nil)))
+             #s(invoice "123" "2017-01-18" "2017-03-30" nil "01234567890" "ALPHA SRL" nil "AMMINISTRAZIONE BETA"
+                        (#s(invoice-line "1" "LA DESCRIZIONE DELLA FORNITURA PUO' SUPERARE I CENTO CARATTERI CHE RAPPRESENTAVANO IL PRECEDENTE LIMITE DIMENSIONALE. TALE LIMITE NELLA NUOVA VERSIONE E' STATO PORTATO A MILLE CARATTERI" "5.00" "22.00" nil nil nil)
+                         #s(invoice-line "2" "FORNITURE VARIE PER UFFICIO" "20.00" "22.00" nil nil nil))
+                        (#s(invoice-summary "25.00" "5.50" nil)))
+             #s(invoice "456" "2017-01-20" "2017-02-20" nil "01234567890" "ALPHA SRL" nil "AMMINISTRAZIONE BETA"
+                        (#s(invoice-line "1" "PRESTAZIONE DEL SEGUENTE SERVIZIO PROFESSIONALE" "2000.00" "22.00" nil nil nil))
+                        (#s(invoice-summary "2000.00" "440.00" nil)
+                         #s(invoice-summary "270.00" "8.00" "Non soggetta art. 1/54-89 L. 190/2014")
+                         #s(invoice-summary "26.00" "6.00" "Escl. art. 15 DPR 633/72")) nil)
+             #s(invoice "12" "2017-01-18" "2017-02-18" nil "01234567890" "ALPHA SRL" nil "AMMINISTRAZIONE BETA"
+                        (#s(invoice-line "1" "DESCRIZIONE DELLA FORNITURA" "5.00" "22.00" nil nil nil)
+                         #s(invoice-line "2" "FORNITURE VARIE PER UFFICIO" "20.00" "22.00" nil nil nil))
+                        (#s(invoice-summary "25.00" "5.50" nil)
+                         #s(invoice-summary "262.08" "0.00" "Non soggetta art. 1/54-89 L. 190/2014")
+                         #s(invoice-summary "30.00" "0.00" "Escl. art. 15 DPR 633/72")) nil)))))
+
 ;;; test get and count valid files
 
 (ert-deftest fpa--get-valid-files ()

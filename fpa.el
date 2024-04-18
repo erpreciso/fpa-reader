@@ -294,6 +294,8 @@ each line and summary to a list of one, for convernient parsing
 downstream."
   (cl-loop for element in invoice-alist
            for id = (symbol-name (cadr element))
+           ;; check the prefix if the element is line or summary, to
+           ;; listify
            for line-or-summary = (or (string-prefix-p "2-2-1" id)
                                      (string-prefix-p "2-2-2" id))
            for value = (caddr element)

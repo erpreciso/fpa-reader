@@ -384,11 +384,11 @@
 
 (ert-deftest fpa--header-string ()
   (should (string= (fpa--header-string 'detail)
-                   "file-name;IVA cedente;Cedente;Cessionario;Data documento;Numero documento;ImportoTotaleDocumento;line-id;Desc;Prezzo totale;Aliquota IVA;Riepilogo Imponibile;Riepilogo Imposta;Scadenza"))
+                   "file-name;IVA cedente;Cedente;Cessionario;Data documento;Numero documento;ImportoTotaleDocumento;Numero Linea;Descrizione Linea;Prezzo totale;Aliquota IVA;Scadenza"))
   (should (string= (fpa--header-string 'summary)
-                   "file-name;IdCodice;Nome;Data;Numero;ImportoTotaleDocumento;ImponibileImporto;Imposta;DataScadenzaPagamento"))
+                   "file-name;IdCodice;Nome;Data;Numero;ImportoTotaleDocumento;line-id;DataScadenzaPagamento"))
   (should (string= (fpa--header-string 'database)
-                   "file-name;seller-tax-id;seller-name;buyer-tax-id;buyer-name;date;id;payment-amount;line-description;line-unit-taxable-price;line-unit-tax-rate;lines-amount-taxable;lines-amount-tax;payment-due-date")))
+                   "file-name;seller-tax-id;seller-name;buyer-tax-id;buyer-name;date;id;payment-amount;line-id;line-description;unit-taxable-price;unit-tax-rate;summary-amount-taxable;summary-amount-tax;reference;payment-due-date")))
 ;;; test get and count valid files
 
 (ert-deftest fpa--get-valid-files ()

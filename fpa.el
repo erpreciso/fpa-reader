@@ -109,10 +109,14 @@ from the schema file and the `fpa--root-header-prefixes'."
                (if p (intern (concat (symbol-name p) ":" rt))
                  (intern rt)))) fpa--root-header-prefixes))
 
-(defvar fpa--bad-regexps '("Ç" "ÇË" "Ç" "Ç"
-                           "ÇØ" "Ç_"
-                           "ÇÇ" "Ç" "Çñ" "Çì"
-                           "∫" "Ç∫" "" "Ç" "\202")
+(defvar fpa--bad-regexps '("Ç" "ÇX" "ÇË"
+                           "ÇO" "Ç" "ÇØ"
+                           "Ç_" "ÅÈ" "Ço"
+                           "Ç3" "Ç~" "Çn"
+                           "Ç" "w" "ÇÇ"
+                           "Ç" "Çñ" "Çì"
+                           "∫" "Ç∫" "" "Ç"
+                           "Ç" "\202")
   "Regexps to replace with ''.
 
 There are invalid characters in some examples of fatture,
@@ -143,16 +147,6 @@ more cases as soon as they manifest."
                ;; replace bad regexps
                (dolist (rxp fpa--bad-regexps)
                  (replace-regexp-in-region rxp "" (point-min)))
-               ;; replace illegal headers
-               (replace-regexp-in-region
-                (rx (or "DataRiferimentoXTerminiPagamento"
-                        "DataRiferimentoTerminiPaOgamento"))
-                "DataRiferimentoTerminiPagamento" (point-min))
-               ;; replace other strange characters
-               (replace-regexp-in-region "<Al\4" "<Al" (point-min))
-               (replace-regexp-in-region "<Al\3" "<Al" (point-min))
-               (replace-regexp-in-region "ImpwortoPagamento"
-                                         "ImportoPagamento" (point-min))
                (goto-char (point-min))
                (or
                 ;; legal version
